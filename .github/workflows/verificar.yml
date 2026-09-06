@@ -1,0 +1,25 @@
+name: Verificar
+
+# Roda em tudo: push em qualquer ramo e todo pull request. É barato
+# (Node puro, sem dependência) e é o que impede um erro de sintaxe ou um
+# gabarito fora das opções de chegar ao Apps Script.
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Sintaxe, banco de perguntas, correção e sessão
+        run: node ferramentas/verificar.js
+
+      - name: A prévia local monta sem scriptlet solto
+        run: node ferramentas/previa.js

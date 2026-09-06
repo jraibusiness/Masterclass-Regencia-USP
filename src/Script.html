@@ -1,0 +1,1479 @@
+<script>
+(function () {
+  'use strict';
+  
+  /* ============================================================
+     ESTADO — em memória. localStorage lança SecurityException
+     dentro do iframe do Apps Script.
+     ============================================================ */
+  
+  var DADOS = null;          // vem do servidor
+  var indiceAtual = 0;
+  var voltarPara = null;     // usado pelo botão "editar" da revisão
+  var enviando = false;
+  
+  var E = {
+    nome: '', sobrenome: '',
+    email: '', emailConfirma: '', emailAdicional: '',
+    whatsapp: '',
+    conheciaTrabalho: '',
+    dia: '', mes: '', ano: '',
+    pais: 'Brasil', cep: '', cidade: '', estado: '',
+    instrumentoPrincipal: '', instrumentoOutro: '',
+    outrosInstrumentos: [],
+    professores: [],
+    instituicoes: [],
+    ciencia: [],
+    experienciaRegencia: '',
+    regeGrupo: '', qualGrupo: '',
+    encontros: [],
+    ciente: false,
+    prioridades: [
+      { obraId: '', trechoId: '' },
+      { obraId: '', trechoId: '' }
+    ],
+    interesseTransmissao: '',
+    visaoFuturo: '',
+    origem: 'novo',
+    protocolo: '',
+    ciencia08: false,
+    cienciaFarrenc: false,
+    comoLevaPartitura: '',
+    levaInstrumento: '',
+    autorizaJR: false,
+    autorizaAK: false
+  };
+  
+  /* ============================================================
+     TELAS — ordem e condições. Nada de índice fixo.
+     ============================================================ */
+  
+  var novo = function () { return E.origem === 'novo'; };
+  
+  var TELAS = [
+    { id: 'portao',       bloco: -1 },
+    { id: 'reencontro',   bloco: -1, mostrarSe: function () { return E.origem === 'existente'; } },
+    { id: 'abertura',     bloco: -1, mostrarSe: novo },
+    { id: 'nome',         bloco: 0, mostrarSe: novo, validar: vNome },
+    { id: 'whatsapp',     bloco: 0, mostrarSe: novo, validar: vWhatsapp },
+    { id: 'email',        bloco: 0, mostrarSe: novo, validar: vEmail },
+    { id: 'conhece',      bloco: 1, mostrarSe: novo, validar: vConhece },
+    { id: 'bio',          bloco: 1, mostrarSe: function () { return novo() && E.conheciaTrabalho === 'Ainda não'; } },
+    { id: 'nascimento',   bloco: 1, mostrarSe: novo, validar: vNascimento },
+    { id: 'local',        bloco: 1, mostrarSe: novo, validar: vLocal },
+    { id: 'instrumento',  bloco: 1, mostrarSe: novo, validar: vInstrumento },
+    { id: 'estudos',      bloco: 1, mostrarSe: novo },
+    { id: 'experiencia',  bloco: 1, mostrarSe: novo, validar: vExperiencia },
+    { id: 'encontros',    bloco: 2, validar: vEncontros },
+    { id: 'preparo08',    bloco: 2, mostrarSe: temEncontroComRepertorio, validar: vPreparo08 },
+    { id: 'repertorio',   bloco: 2, mostrarSe: temEncontroComRepertorio, validar: vRepertorio },
+    { id: 'compromisso',  bloco: 2, mostrarSe: temEncontroDeAnalise, validar: vCompromisso },
+    { id: 'transmissao',  bloco: 2, mostrarSe: novo, validar: vTransmissao },
+    { id: 'futuro',       bloco: 3, mostrarSe: novo, validar: vFuturo },
+    { id: 'autorizacoes', bloco: 3, mostrarSe: novo },
+    { id: 'convite',      bloco: 3, mostrarSe: novo },
+    { id: 'revisao',      bloco: 3 },
+    { id: 'fim',          bloco: -1 }
+  ];
+  
+  /* A Fase 3 acrescenta as telas dela e restringe as da Fase 2 para quem
+     já a concluiu. Sem o arquivo, TELAS fica exatamente como está acima. */
+  if (window.F3 && window.F3.telas) TELAS = window.F3.telas(TELAS);
+  
+  function temEncontroDeAnalise() {
+    if (!DADOS) return false;
+    return DADOS.eventos.some(function (ev) {
+      return !ev.temRepertorio && ev.modalidade === 'Presencial' && E.encontros.indexOf(ev.id) !== -1;
+    });
+  }
+  
+  function temEncontroComRepertorio() {
+    if (!DADOS) return false;
+    for (var i = 0; i < DADOS.eventos.length; i++) {
+      var ev = DADOS.eventos[i];
+      if (ev.temRepertorio && E.encontros.indexOf(ev.id) !== -1) return true;
+    }
+    return false;
+  }
+  
+  function telasVisiveis() {
+    return TELAS.filter(function (t) { return !t.mostrarSe || t.mostrarSe(); });
+  }
+  
+  function indiceDaTela(id) {
+    var vis = telasVisiveis();
+    for (var i = 0; i < vis.length; i++) if (vis[i].id === id) return i;
+    return -1;
+  }
+  
+  /* ============================================================
+     UTILITÁRIOS
+     ============================================================ */
+  
+  function $(id) { return document.getElementById(id); }
+  function $$(sel, raiz) { return Array.prototype.slice.call((raiz || document).querySelectorAll(sel)); }
+  
+  function escapar(s) {
+    return String(s === null || s === undefined ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+  
+  /* Acentos quebram /\b\w/. Split e map resolvem. */
+  function capitalizar(s) {
+    return String(s || '').trim().toLowerCase().split(/\s+/).map(function (p) {
+      if (!p) return p;
+      if (p.length <= 2 && ['de', 'da', 'do', 'e', 'dos', 'das'].indexOf(p) !== -1) return p;
+      return p.charAt(0).toUpperCase() + p.slice(1);
+    }).join(' ');
+  }
+  
+  function porCaminho(obj, caminho) {
+    return caminho.split('.').reduce(function (o, k) {
+      return (o === null || o === undefined) ? undefined : o[k];
+    }, obj);
+  }
+  
+  function emailValido(v) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(v || '').trim());
+  }
+  
+  function mascaraTelefone(v) {
+    var d = String(v || '').replace(/\D/g, '').slice(0, 11);
+    if (d.length <= 2) return d;
+    if (d.length <= 6) return '(' + d.slice(0, 2) + ') ' + d.slice(2);
+    if (d.length <= 10) return '(' + d.slice(0, 2) + ') ' + d.slice(2, 6) + '-' + d.slice(6);
+    return '(' + d.slice(0, 2) + ') ' + d.slice(2, 7) + '-' + d.slice(7);
+  }
+  
+  function mascaraCep(v) {
+    var d = String(v || '').replace(/\D/g, '').slice(0, 8);
+    return d.length > 5 ? d.slice(0, 5) + '-' + d.slice(5) : d;
+  }
+  
+  function limparErros() {
+    $$('.erro').forEach(function (el) { el.textContent = ''; });
+    $$('[aria-invalid="true"]').forEach(function (el) { el.setAttribute('aria-invalid', 'false'); });
+  }
+  
+  function mostrarErro(idErro, mensagem, idCampo) {
+    var el = $(idErro);
+    if (el) el.textContent = mensagem;
+    if (idCampo) {
+      var campo = $(idCampo);
+      if (campo) {
+        campo.setAttribute('aria-invalid', 'true');
+        campo.focus();
+      }
+    }
+  }
+  
+  /* ============================================================
+     MODAL — confirm() e alert() são proibidos.
+     ============================================================ */
+  
+  var acaoConfirmar = null;
+  
+  function abrirModal(titulo, texto, rotuloConfirmar, rotuloCancelar, aoConfirmar) {
+    $('modalTitulo').textContent = titulo;
+    $('modalTexto').textContent = texto;
+    $('modalConfirmar').textContent = rotuloConfirmar;
+    var btnCancelar = $('modalCancelar');
+    if (rotuloCancelar) {
+      btnCancelar.textContent = rotuloCancelar;
+      btnCancelar.hidden = false;
+    } else {
+      btnCancelar.hidden = true;
+    }
+    acaoConfirmar = aoConfirmar || null;
+    $('modal').hidden = false;
+    $('modalConfirmar').focus();
+  }
+  
+  function fecharModal() {
+    $('modal').hidden = true;
+    acaoConfirmar = null;
+  }
+  
+  /* ============================================================
+     NAVEGAÇÃO
+     ============================================================ */
+  
+  var TELAS_COM_RODAPE = { portao: 1, abertura: 1, revisao: 1, fim: 1, selo: 1 };
+  
+  function irPara(indice, semValidar) {
+    var vis = telasVisiveis();
+    if (indice < 0) indice = 0;
+    if (indice >= vis.length) indice = vis.length - 1;
+  
+    limparErros();
+    $('palco').setAttribute('data-sentido', indice < indiceAtual ? 'tras' : 'frente');
+    indiceAtual = indice;
+    var tela = vis[indice];
+  
+    $$('.tela').forEach(function (el) { el.setAttribute('data-ativa', '0'); });
+    var alvo = document.querySelector('.tela[data-tela="' + tela.id + '"]');
+    if (alvo) alvo.setAttribute('data-ativa', '1');
+  
+    var ehExtremo = (tela.id === 'abertura' || tela.id === 'fim' || tela.id === 'selo');
+    $('topo').hidden = ehExtremo;
+    // O aviso de LGPD em toda tela cansa e deixa de ser lido. Ele aparece na
+    // primeira tela, na hora de enviar e nas de fecho — que é onde importa.
+    $('rodape').hidden = !TELAS_COM_RODAPE[tela.id];
+    // No quiz e no placar o voltar é do próprio quiz: o do topo levaria
+    // de volta a uma pergunta já enviada, e reenviaria o resultado.
+    $('btnVoltar').hidden = ehExtremo || indice === 0 ||
+      tela.id === 'quiz' || tela.id === 'placar';
+  
+    if (!ehExtremo) atualizarBlocos(tela.bloco);
+    if (tela.id === 'revisao') montarRevisao();
+    if (window.F3) window.F3.aoEntrar(tela.id);
+  
+    window.scrollTo(0, 0);
+    if (typeof semValidar === 'undefined') focarPrimeiro(alvo);
+  }
+  
+  function focarPrimeiro(secao) {
+    if (!secao) return;
+    var campo = secao.querySelector('input:not([type="hidden"]), textarea, select');
+    // Só foca em telas de digitação; foco automático em botão faz a tela pular no mobile.
+    if (campo && !campo.disabled && campo.offsetParent !== null) {
+      var tipo = campo.tagName.toLowerCase();
+      if (tipo === 'input' || tipo === 'textarea') {
+        try { campo.focus({ preventScroll: true }); } catch (e) {}
+      }
+    }
+  }
+  
+  function avancar() {
+    var vis = telasVisiveis();
+    var tela = vis[indiceAtual];
+  
+    if (tela.validar && !tela.validar()) return;
+    if (window.F3 && !window.F3.exigirCiencia(tela.id)) return;
+  
+    if (voltarPara) {
+      var destino = voltarPara;
+      voltarPara = null;
+      var i = indiceDaTela(destino);
+      irPara(i >= 0 ? i : indiceAtual + 1);
+      return;
+    }
+    irPara(indiceAtual + 1);
+  }
+  
+  function voltar() {
+    if (voltarPara) {
+      var destino = voltarPara;
+      voltarPara = null;
+      var i = indiceDaTela(destino);
+      irPara(i >= 0 ? i : indiceAtual - 1);
+      return;
+    }
+    irPara(indiceAtual - 1);
+  }
+  
+  function atualizarBlocos(blocoAtivo) {
+    var lista = $('topoBlocos');
+    if (!lista.childNodes.length) {
+      lista.innerHTML = T.blocos.map(function (nome) {
+        return '<li class="topo__bloco">' + escapar(nome) + '</li>';
+      }).join('');
+    }
+    $$('.topo__bloco', lista).forEach(function (el, i) {
+      if (i < blocoAtivo) el.setAttribute('data-estado', 'feito');
+      else if (i === blocoAtivo) el.setAttribute('data-estado', 'ativo');
+      else el.removeAttribute('data-estado');
+    });
+  }
+  
+  /* ============================================================
+     VALIDADORES
+     ============================================================ */
+  
+  function vNome() {
+    E.nome = capitalizar($('inNome').value);
+    E.sobrenome = capitalizar($('inSobrenome').value);
+    $('inNome').value = E.nome;
+    $('inSobrenome').value = E.sobrenome;
+    if (!E.nome) { mostrarErro('erNome', T.erros.nome, 'inNome'); return false; }
+    if (!E.sobrenome) { mostrarErro('erNome', T.erros.sobrenome, 'inSobrenome'); return false; }
+    return true;
+  }
+  
+  function vWhatsapp() {
+    E.whatsapp = $('inWhatsapp').value.trim();
+    if (E.whatsapp.replace(/\D/g, '').length < 10) {
+      mostrarErro('erWhatsapp', T.erros.whatsapp, 'inWhatsapp');
+      return false;
+    }
+    return true;
+  }
+  
+  function vEmail() {
+    E.email = $('inEmail').value.trim().toLowerCase();
+    E.emailConfirma = $('inEmailConfirma').value.trim().toLowerCase();
+    E.emailAdicional = $('inEmailAdicional').value.trim().toLowerCase();
+  
+    if (!emailValido(E.email)) { mostrarErro('erEmail', T.erros.email, 'inEmail'); return false; }
+    if (E.email !== E.emailConfirma) { mostrarErro('erEmail', T.erros.emailConfirma, 'inEmailConfirma'); return false; }
+    if (E.emailAdicional && !emailValido(E.emailAdicional)) {
+      mostrarErro('erEmail', T.erros.emailAdicional, 'inEmailAdicional');
+      return false;
+    }
+    return true;
+  }
+  
+  function vConhece() { return !!E.conheciaTrabalho; }
+  
+  function vNascimento() {
+    E.dia = $('inDia').value;
+    E.mes = $('inMes').value;
+    E.ano = $('inAno').value;
+    if (!E.dia || !E.mes || !E.ano) { mostrarErro('erNascimento', T.erros.nascimento); return false; }
+    return true;
+  }
+  
+  function vLocal() {
+    if (E.pais === 'Brasil') {
+      E.cep = $('inCep').value.trim();
+      E.cidade = capitalizar($('inCidade').value);
+      E.estado = $('inEstado').value;
+      $('inCidade').value = E.cidade;
+      if (!E.cidade) { mostrarErro('erLocal', T.erros.cidade, 'inCidade'); return false; }
+      if (!E.estado) { mostrarErro('erLocal', T.erros.estado, 'inEstado'); return false; }
+    } else {
+      E.pais = capitalizar($('inPais').value) || '';
+      E.cidade = capitalizar($('inCidadeEx').value);
+      E.estado = '';
+      E.cep = '';
+      $('inPais').value = E.pais;
+      $('inCidadeEx').value = E.cidade;
+      if (!E.pais) { mostrarErro('erLocal', T.erros.pais, 'inPais'); return false; }
+      if (!E.cidade) { mostrarErro('erLocal', T.erros.cidade, 'inCidadeEx'); return false; }
+    }
+    return true;
+  }
+  
+  function vInstrumento() {
+    if (!E.instrumentoPrincipal) { mostrarErro('erInstrumento', T.erros.instrumento); return false; }
+    if (E.instrumentoPrincipal === '__outro') {
+      E.instrumentoOutro = capitalizar($('inInstrumentoOutro').value);
+      $('inInstrumentoOutro').value = E.instrumentoOutro;
+      if (!E.instrumentoOutro) {
+        mostrarErro('erInstrumento', T.erros.instrumentoOutro, 'inInstrumentoOutro');
+        return false;
+      }
+    }
+    return true;
+  }
+  
+  function vExperiencia() {
+    if (!E.experienciaRegencia) { mostrarErro('erExperiencia', T.erros.experiencia); return false; }
+    if (!E.regeGrupo) { mostrarErro('erExperiencia', T.erros.regeGrupo); return false; }
+    if (E.regeGrupo !== 'Ainda não') {
+      E.qualGrupo = $('inQualGrupo').value.trim();
+      if (!E.qualGrupo) { mostrarErro('erExperiencia', T.erros.qualGrupo, 'inQualGrupo'); return false; }
+    } else {
+      E.qualGrupo = '';
+    }
+    return true;
+  }
+  
+  function vEncontros() {
+    if (!E.encontros.length) { mostrarErro('erEncontros', T.erros.encontros); return false; }
+    var faltaCiencia = DADOS.eventos.some(function (ev) {
+      return ev.estado === 'iniciado' &&
+        E.encontros.indexOf(ev.id) !== -1 &&
+        E.ciencia.indexOf(ev.id) === -1;
+    });
+    if (faltaCiencia) { mostrarErro('erEncontros', T.encontros.cienciaErro); return false; }
+    return true;
+  }
+  
+  /* O valor era lido só no envio. A revisão montava antes e mostrava vazio:
+     era isso que os alunos relatavam. Agora captura ao sair da tela. */
+  function vFuturo() {
+    E.visaoFuturo = $('inFuturo').value.trim();
+    return true;
+  }
+  
+  function vPreparo08() {
+    if (!E.ciencia08) { mostrarErro('erPreparo08', T.preparo08.cienciaErro); return false; }
+    return true;
+  }
+  
+  function vRepertorio() {
+    var p = E.prioridades[0];
+    if (!p.obraId) { mostrarErro('erRepertorio', T.repertorio.erro); return false; }
+    if (!p.trechoId) { mostrarErro('erRepertorio', T.repertorio.erroTrecho); return false; }
+    var q = E.prioridades[1];
+    if (q.obraId && !q.trechoId) { mostrarErro('erRepertorio', T.repertorio.erroTrecho); return false; }
+    return true;
+  }
+  
+  function vCompromisso() {
+    if (!E.cienciaFarrenc) { mostrarErro('erCompromisso', T.compromisso.cienciaErro); return false; }
+    if (!E.comoLevaPartitura) { mostrarErro('erCompromisso', T.compromisso.partituraErro); return false; }
+    return true;
+  }
+  
+  function vTransmissao() {
+    if (!E.interesseTransmissao) { mostrarErro('erTransmissao', T.erros.transmissao); return false; }
+    return true;
+  }
+  
+  /* ============================================================
+     RENDERIZAÇÃO
+     ============================================================ */
+  
+  function aplicarTextos() {
+    $$('[data-t]').forEach(function (el) {
+      var v = porCaminho(T, el.getAttribute('data-t'));
+      if (typeof v === 'string') el.innerHTML = v;
+    });
+    $$('[data-t-texto]').forEach(function (el) {
+      var v = porCaminho(T, el.getAttribute('data-t-texto'));
+      if (typeof v === 'string') el.textContent = v;
+    });
+    $$('[data-avancar]').forEach(function (el) {
+      if (!el.hasAttribute('data-t-texto') && !el.textContent.trim()) el.textContent = T.nav.continuar;
+    });
+    $('btnVoltarTexto').textContent = T.nav.voltar;
+    $('btnEmailAdicional').textContent = T.email.botaoAdicional;
+    $('rodapeTexto').innerHTML = T.rodape.lgpd;
+    $('rodapeContato').textContent = T.rodape.contato;
+    $('rodapeCreditos').innerHTML = escapar(T.rodape.porOpusAI) + ' <a href="' +
+      escapar(T.rodape.urlOpusAI) + '" target="_blank" rel="noopener">' +
+      escapar(T.rodape.opusAI) + '</a>';
+    $('rodapeCredito').innerHTML = escapar(T.rodape.creditoPrefixo) + ' ' +
+      '<a href="' + escapar(T.rodape.creditoUrl) + '" target="_blank" rel="noopener">' +
+      escapar(T.rodape.creditoNome) + '</a>';
+    $('rodapeVersao').textContent = VERSAO;
+  }
+  
+  /** Bloco de horário: período (cor) + data + hora grande + duração. */
+  function blocoQuando(ev) {
+    return '<span class="quando">' +
+      '<span class="periodo" data-p="' + escapar(ev.periodo) + '">' + escapar(ev.periodo) + '</span>' +
+      '<span class="quando__data">' + escapar(ev.diaSemana + ' · ' + ev.dataTexto) + '</span>' +
+      '<span class="quando__hora">' +
+      escapar(ev.horaInicio.replace(':', 'h') + ' – ' + ev.horaFim.replace(':', 'h')) + '</span>' +
+      '<span class="quando__duracao">' + escapar(duracaoTexto(ev)) + '</span>' +
+      '</span>';
+  }
+  
+  function duracaoTexto(ev) {
+    function min(h) { var p = h.split(':'); return (+p[0]) * 60 + (+p[1]); }
+    var d = min(ev.horaFim) - min(ev.horaInicio);
+    if (d <= 0) return '';
+    return d + ' minutos · ' + (ev.modalidade === 'Online' ? 'online' : 'presencial');
+  }
+  
+  function botaoChip(rotulo, valor, pressionado) {
+    return '<button type="button" class="chip" data-valor="' + escapar(valor) + '" aria-pressed="' +
+      (pressionado ? 'true' : 'false') + '">' + escapar(rotulo) + '</button>';
+  }
+  
+  function montarAbertura() {
+    var cfg = DADOS.config;
+    $('aberturaOlho').textContent = T.abertura.olho;
+    $('aberturaTitulo').textContent = cfg.tituloEvento || T.abertura.titulo;
+    $('aberturaSubtitulo').textContent = T.abertura.subtitulo;
+    $('aberturaApoio').textContent = T.abertura.apoio;
+    $('aberturaDestaque').textContent = T.abertura.destaque;
+    $('aberturaJustificativa').textContent = T.abertura.justificativa;
+    $('btnComecar').textContent = T.abertura.botao;
+  
+    $('aberturaAgendaRotulo').textContent = T.abertura.agenda;
+    $('aberturaEscolhaDepois').textContent = T.abertura.escolhaDepois;
+  
+    // Anúncio, não seleção. Escolher vem na tela de encontros.
+    $('aberturaEventos').innerHTML = DADOS.eventos.map(function (ev) {
+      return '<li class="agenda-anuncio__item">' +
+        '<span class="agenda-anuncio__marca" aria-hidden="true">' + escapar(ev.letra) + '</span>' +
+        '<span class="agenda-anuncio__corpo">' +
+        '<span class="agenda-anuncio__quando">' +
+        escapar(ev.dataCurta + ' · ' + ev.diaSemana + ' · ' +
+          ev.horaInicio.replace(':', 'h') + '–' + ev.horaFim.replace(':', 'h')) + '</span>' +
+        '<span class="agenda-anuncio__oque">' +
+        escapar(ev.titulo + ' · ' + ev.modalidade) + '</span>' +
+        (ev.estado === 'encerrado'
+          ? '<span class="agenda-anuncio__selo">' + escapar(T.encontros.encerrado) + '</span>'
+          : '') +
+        '</span></li>';
+    }).join('');
+  }
+  
+  function montarConhece() {
+    $('grupoConhece').innerHTML = [
+      { v: 'Sim, já conhecia', r: T.conhece.sim },
+      { v: 'Ainda não', r: T.conhece.nao }
+    ].map(function (o) {
+      return '<button type="button" class="cartao" data-valor="' + escapar(o.v) + '" aria-pressed="false">' +
+        '<span class="cartao__titulo">' + escapar(o.r) + '</span></button>';
+    }).join('');
+  
+    $$('#grupoConhece .cartao').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        E.conheciaTrabalho = btn.getAttribute('data-valor');
+        $$('#grupoConhece .cartao').forEach(function (b) {
+          b.setAttribute('aria-pressed', b === btn ? 'true' : 'false');
+        });
+        setTimeout(avancar, 180);
+      });
+    });
+  }
+  
+  function montarBio() {
+    var html = T.bio.grupos.map(function (g) {
+      return '<div class="bio__grupo">' +
+        '<div class="bio__rubrica">' + escapar(g.rubrica) + '</div>' +
+        '<ul class="bio__lista">' +
+        g.itens.map(function (it) { return '<li class="bio__item">' + it + '</li>'; }).join('') +
+        '</ul></div>';
+    }).join('');
+    html += '<p class="bio__prosa">' + escapar(T.bio.prosa) + '</p>';
+    $('bioConteudo').innerHTML = html;
+  }
+  
+  function montarNascimento() {
+    var dias = ['<option value="">—</option>'];
+    for (var d = 1; d <= 31; d++) dias.push('<option value="' + d + '">' + d + '</option>');
+    $('inDia').innerHTML = dias.join('');
+  
+    var meses = ['<option value="">—</option>'];
+    OPCOES.meses.forEach(function (m, i) {
+      meses.push('<option value="' + (i + 1) + '">' + escapar(m) + '</option>');
+    });
+    $('inMes').innerHTML = meses.join('');
+  
+    var anoFinal = new Date().getFullYear() - 8;
+    var anos = ['<option value="">—</option>'];
+    for (var a = anoFinal; a >= 1935; a--) anos.push('<option value="' + a + '">' + a + '</option>');
+    $('inAno').innerHTML = anos.join('');
+  }
+  
+  function montarLocal() {
+    $('grupoPais').innerHTML =
+      botaoChip(T.local.brasil, 'Brasil', true) + botaoChip(T.local.exterior, 'Exterior', false);
+  
+    $$('#grupoPais .chip').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var v = btn.getAttribute('data-valor');
+        E.pais = (v === 'Brasil') ? 'Brasil' : '';
+        $$('#grupoPais .chip').forEach(function (b) {
+          b.setAttribute('aria-pressed', b === btn ? 'true' : 'false');
+        });
+        $('blocoBrasil').hidden = (v !== 'Brasil');
+        $('blocoExterior').hidden = (v === 'Brasil');
+      });
+    });
+  
+    var ufs = ['<option value="">—</option>'];
+    OPCOES.estados.forEach(function (uf) { ufs.push('<option value="' + uf + '">' + uf + '</option>'); });
+    $('inEstado').innerHTML = ufs.join('');
+  
+    $('inCep').addEventListener('input', function () {
+      this.value = mascaraCep(this.value);
+      if (this.value.replace(/\D/g, '').length === 8) buscarCep(this.value.replace(/\D/g, ''));
+    });
+  }
+  
+  function buscarCep(cep) {
+    var erro = $('erLocal');
+    erro.textContent = T.local.buscando;
+    erro.style.color = 'var(--prata-3)';
+    fetch('https://viacep.com.br/ws/' + cep + '/json/')
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        erro.style.color = '';
+        if (j && !j.erro) {
+          $('inCidade').value = j.localidade || '';
+          $('inEstado').value = j.uf || '';
+          erro.textContent = '';
+        } else {
+          erro.textContent = T.local.cepInvalido;
+        }
+      })
+      .catch(function () {
+        erro.style.color = '';
+        erro.textContent = T.local.cepInvalido;
+      });
+  }
+  
+  function montarInstrumento() {
+    var html = OPCOES.instrumentos.map(function (i) { return botaoChip(i, i, false); }).join('');
+    html += botaoChip('Outro', '__outro', false);
+    $('grupoInstrumento').innerHTML = html;
+  
+    $$('#grupoInstrumento .chip').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        E.instrumentoPrincipal = btn.getAttribute('data-valor');
+        $$('#grupoInstrumento .chip').forEach(function (b) {
+          b.setAttribute('aria-pressed', b === btn ? 'true' : 'false');
+        });
+        $('blocoInstrumentoOutro').hidden = (E.instrumentoPrincipal !== '__outro');
+      });
+    });
+  
+    $('grupoOutrosInstrumentos').innerHTML =
+      OPCOES.instrumentos.map(function (i) { return botaoChip(i, i, false); }).join('');
+  
+    $$('#grupoOutrosInstrumentos .chip').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var v = btn.getAttribute('data-valor');
+        var i = E.outrosInstrumentos.indexOf(v);
+        if (i === -1) { E.outrosInstrumentos.push(v); btn.setAttribute('aria-pressed', 'true'); }
+        else { E.outrosInstrumentos.splice(i, 1); btn.setAttribute('aria-pressed', 'false'); }
+      });
+    });
+  }
+  
+  function montarEstudos() {
+    $('grupoInstituicoes').innerHTML =
+      OPCOES.instituicoesSugeridas.map(function (i) { return botaoChip(i, i, false); }).join('');
+  
+    $$('#grupoInstituicoes .chip').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var v = btn.getAttribute('data-valor');
+        var i = E.instituicoes.indexOf(v);
+        if (i === -1) { E.instituicoes.push(v); btn.setAttribute('aria-pressed', 'true'); }
+        else { E.instituicoes.splice(i, 1); btn.setAttribute('aria-pressed', 'false'); }
+      });
+    });
+  
+    ligarAdicionador('inProfessor', 'btnAddProfessor', 'professores', 'listaProfessores', []);
+    ligarAdicionador('inInstituicaoOutra', 'btnAddInstituicao', 'instituicoes',
+      'listaInstituicoesLivres', OPCOES.instituicoesSugeridas);
+  }
+  
+  /** Campo + botão "+" que constrói uma lista de chips removíveis. */
+  function ligarAdicionador(idCampo, idBotao, chave, idLista, sugeridos) {
+    function render() {
+      var livres = E[chave].filter(function (v) { return sugeridos.indexOf(v) === -1; });
+      $(idLista).innerHTML = livres.map(function (v) {
+        return '<button type="button" class="chip" aria-pressed="true" data-remover="' +
+          escapar(v) + '">' + escapar(v) + ' &times;</button>';
+      }).join('');
+      $$('#' + idLista + ' .chip').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var i = E[chave].indexOf(btn.getAttribute('data-remover'));
+          if (i !== -1) E[chave].splice(i, 1);
+          render();
+        });
+      });
+    }
+  
+    function adicionar() {
+      var campo = $(idCampo);
+      var v = capitalizar(campo.value);
+      if (!v || E[chave].indexOf(v) !== -1) { campo.value = ''; return; }
+      E[chave].push(v);
+      campo.value = '';
+      render();
+      campo.focus();
+    }
+  
+    $(idBotao).addEventListener('click', adicionar);
+    $(idCampo).addEventListener('keydown', function (ev) {
+      if (ev.key === 'Enter') { ev.preventDefault(); adicionar(); }
+    });
+  }
+  
+  function montarExperiencia() {
+    $('grupoExperiencia').innerHTML = OPCOES.experiencia.map(function (o) {
+      return '<button type="button" class="cartao" data-valor="' + escapar(o) + '" aria-pressed="false">' +
+        '<span class="cartao__titulo">' + escapar(o) + '</span></button>';
+    }).join('');
+  
+    $$('#grupoExperiencia .cartao').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        E.experienciaRegencia = btn.getAttribute('data-valor');
+        $$('#grupoExperiencia .cartao').forEach(function (b) {
+          b.setAttribute('aria-pressed', b === btn ? 'true' : 'false');
+        });
+      });
+    });
+  
+    $('grupoRegeGrupo').innerHTML =
+      OPCOES.regeGrupo.map(function (o) { return botaoChip(o, o, false); }).join('');
+  
+    $$('#grupoRegeGrupo .chip').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        E.regeGrupo = btn.getAttribute('data-valor');
+        $$('#grupoRegeGrupo .chip').forEach(function (b) {
+          b.setAttribute('aria-pressed', b === btn ? 'true' : 'false');
+        });
+        $('blocoQualGrupo').hidden = (E.regeGrupo === 'Ainda não');
+      });
+    });
+  }
+  
+  function montarEncontros() {
+    $('grupoEncontros').innerHTML = DADOS.eventos.map(function (ev) {
+      var onde = ev.modalidade === 'Online'
+        ? T.encontros.online
+        : ev.local + (ev.endereco ? ' · ' + ev.endereco : '');
+  
+      var selo = '';
+      if (ev.estado === 'encerrado') {
+        selo = '<span class="cartao__selo" data-tipo="encerrado">' +
+          escapar(T.encontros.encerrado) + '</span>' +
+          '<span class="cartao__aviso">Começou às ' + escapar(ev.horaAviso) + ' de ' +
+          escapar(ev.dataTexto) + '. Já passamos de ' + escapar(ev.horaLimite) +
+          ', então não estamos mais aceitando inscrições para este encontro.</span>';
+      } else if (ev.estado === 'iniciado') {
+        selo = '<span class="cartao__selo" data-tipo="iniciado">' +
+          escapar(T.encontros.jaComecou) + '</span>' +
+          '<span class="cartao__aviso">Começou às ' + escapar(ev.horaAviso) +
+          '. Você ainda pode entrar, com ele em andamento.</span>';
+      } else if (ev.modalidade === 'Online') {
+        selo = '<span class="cartao__selo" data-tipo="online">' +
+          escapar(T.encontros.online) + '</span>';
+      }
+  
+      return '<button type="button" class="cartao cartao--marcado" data-valor="' + escapar(ev.id) + '" ' +
+        'aria-pressed="false"' + (ev.estado === 'encerrado' ? ' disabled' : '') + '>' +
+        '<span class="marca" aria-hidden="true">' + escapar(ev.letra) + '</span>' +
+        blocoQuando(ev) +
+        '<span class="cartao__titulo" style="margin-top:10px;">' + escapar(ev.titulo) + '</span>' +
+        '<span class="cartao__meta">' + escapar(onde) + '</span>' +
+        '<span class="cartao__descricao">' + escapar(ev.descricao) + '</span>' +
+        selo + '</button>';
+    }).join('');
+  
+    $$('#grupoEncontros .cartao').forEach(function (btn) {
+      if (btn.disabled) return;
+      var vid = btn.getAttribute('data-valor');
+      if (E.encontros.indexOf(vid) !== -1) btn.setAttribute('aria-pressed', 'true');
+      btn.addEventListener('click', function () {
+        var v = btn.getAttribute('data-valor');
+        var i = E.encontros.indexOf(v);
+        if (i === -1) { E.encontros.push(v); btn.setAttribute('aria-pressed', 'true'); }
+        else {
+          E.encontros.splice(i, 1);
+          btn.setAttribute('aria-pressed', 'false');
+          var c = E.ciencia.indexOf(v);
+          if (c !== -1) E.ciencia.splice(c, 1);
+        }
+        renderCiencia();
+      });
+    });
+  }
+  
+  /** Encontro já iniciado só entra na lista com ciência explícita. */
+  function renderCiencia() {
+    var pendentes = DADOS.eventos.filter(function (ev) {
+      return ev.estado === 'iniciado' && E.encontros.indexOf(ev.id) !== -1;
+    });
+  
+    $('grupoCiencia').innerHTML = pendentes.map(function (ev) {
+      return '<button type="button" class="ciencia" data-valor="' + escapar(ev.id) + '" ' +
+        'aria-pressed="' + (E.ciencia.indexOf(ev.id) !== -1 ? 'true' : 'false') + '">' +
+        '<span class="ciencia__marca" aria-hidden="true"></span>' +
+        '<span class="ciencia__texto">' + escapar(ev.titulo) + ' — ' +
+        escapar(T.encontros.cienciaRotulo) + '</span></button>';
+    }).join('');
+  
+    $$('#grupoCiencia .ciencia').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var v = btn.getAttribute('data-valor');
+        var i = E.ciencia.indexOf(v);
+        if (i === -1) { E.ciencia.push(v); btn.setAttribute('aria-pressed', 'true'); }
+        else { E.ciencia.splice(i, 1); btn.setAttribute('aria-pressed', 'false'); }
+      });
+    });
+  }
+  
+  function montarRepertorio() {
+    var max = Math.min(parseInt(DADOS.config.maxPrioridades || '2', 10), E.prioridades.length);
+    var html = '';
+    for (var p = 0; p < max; p++) {
+      html += '<div class="prioridade">' +
+        '<div class="prioridade__rotulo">' +
+        escapar(T.repertorio.prioridade[p] || ('Prioridade ' + (p + 1))) +
+        (p > 0 ? '<span class="opcional">opcional</span>' : '') + '</div>' +
+        '<div class="campo">' +
+        '<label class="campo__rotulo" for="selObra' + p + '">' + escapar(T.repertorio.rotuloObra) + '</label>' +
+        '<select class="campo__select" id="selObra' + p + '">' +
+        '<option value="">' + escapar(T.repertorio.selecioneObra) + '</option>' +
+        DADOS.repertorio.map(function (o) {
+          return '<option value="' + escapar(o.id) + '">' +
+            escapar(o.compositor + ' — ' + o.obra) + '</option>';
+        }).join('') + '</select></div>' +
+        '<div id="trechos' + p + '"></div>' +
+        '</div>';
+    }
+    $('grupoPrioridades').innerHTML = html;
+  
+    for (var i = 0; i < max; i++) {
+      (function (idx) {
+        $('selObra' + idx).addEventListener('change', function () {
+          E.prioridades[idx].obraId = this.value;
+          E.prioridades[idx].trechoId = '';
+          renderTrechos(idx);
+        });
+      })(i);
+    }
+  }
+  
+  function obraPorId(id) {
+    for (var i = 0; i < DADOS.repertorio.length; i++) {
+      if (DADOS.repertorio[i].id === id) return DADOS.repertorio[i];
+    }
+    return null;
+  }
+  
+  function renderTrechos(p) {
+    var alvo = $('trechos' + p);
+    var obra = obraPorId(E.prioridades[p].obraId);
+    if (!obra) { alvo.innerHTML = ''; return; }
+  
+    alvo.innerHTML =
+      '<p class="campo__rotulo" style="margin-top:14px;">' + escapar(T.repertorio.rotuloTrecho) + '</p>' +
+      '<div class="chips">' +
+      obra.trechos.map(function (t) { return botaoChip(t.nome, t.id, false); }).join('') +
+      '</div>';
+  
+    $$('.chip', alvo).forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        E.prioridades[p].trechoId = btn.getAttribute('data-valor');
+        $$('.chip', alvo).forEach(function (b) {
+          b.setAttribute('aria-pressed', b === btn ? 'true' : 'false');
+        });
+      });
+    });
+  }
+  
+  /** Cabeçalho que diz, sem margem de dúvida, de qual encontro a tela trata. */
+  function montarBanner(idAlvo, filtro) {
+    var el = $(idAlvo);
+    if (!el) return;
+    var ev = DADOS.eventos.filter(filtro)[0];
+    if (!ev) { el.innerHTML = ''; return; }
+    el.innerHTML =
+      '<span class="banner__marca" aria-hidden="true">' + escapar(ev.letra) + '</span>' +
+      '<span class="banner__corpo">' +
+      '<span class="banner__data">' + escapar(ev.dataCurta + ' · ' + ev.diaSemana) + '</span>' +
+      '<span class="banner__hora">' +
+      escapar(ev.horaInicio.replace(':', 'h') + ' – ' + ev.horaFim.replace(':', 'h')) + '</span>' +
+      '</span>' +
+      '<span class="periodo" data-p="' + escapar(ev.periodo) + '">' + escapar(ev.periodo) + '</span>';
+  }
+  
+  function ehDia08(ev) { return ev.temRepertorio && ev.modalidade === 'Presencial'; }
+  function ehDia09(ev) { return !ev.temRepertorio && ev.modalidade === 'Presencial'; }
+  
+  function montarPreparo08() {
+    $('preparo08Itens').innerHTML = T.preparo08.itens.map(function (it) {
+      return '<li class="bio__item">' + it + '</li>';
+    }).join('');
+  
+    $('grupoCiencia08').innerHTML =
+      '<button type="button" class="ciencia" id="btnCiencia08" aria-pressed="false">' +
+      '<span class="ciencia__marca" aria-hidden="true"></span>' +
+      '<span class="ciencia__texto">' + escapar(T.preparo08.cienciaRotulo) + '</span></button>';
+  
+    $('btnCiencia08').addEventListener('click', function () {
+      E.ciencia08 = !E.ciencia08;
+      this.setAttribute('aria-pressed', E.ciencia08 ? 'true' : 'false');
+    });
+  }
+  
+  function montarCompromisso() {
+    $('compromissoItens').innerHTML = T.compromisso.itens.map(function (it) {
+      return '<li class="bio__item">' + it + '</li>';
+    }).join('');
+  
+    $('grupoCienciaFarrenc').innerHTML =
+      '<button type="button" class="ciencia" id="btnCienciaFarrenc" aria-pressed="false">' +
+      '<span class="ciencia__marca" aria-hidden="true"></span>' +
+      '<span class="ciencia__texto">' + escapar(T.compromisso.cienciaRotulo) + '</span></button>';
+  
+    $('btnCienciaFarrenc').addEventListener('click', function () {
+      E.cienciaFarrenc = !E.cienciaFarrenc;
+      this.setAttribute('aria-pressed', E.cienciaFarrenc ? 'true' : 'false');
+    });
+  
+    grupoUnico('grupoPartitura', T.compromisso.partituraOpcoes, function (v) {
+      E.comoLevaPartitura = v;
+    });
+    grupoUnico('grupoInstrumentoLeva', T.compromisso.instrumentoOpcoes, function (v) {
+      E.levaInstrumento = v;
+    });
+  }
+  
+  /** Chips de escolha única. */
+  function grupoUnico(id, opcoes, aoEscolher) {
+    $(id).innerHTML = opcoes.map(function (o) { return botaoChip(o, o, false); }).join('');
+    $$('#' + id + ' .chip').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        aoEscolher(btn.getAttribute('data-valor'));
+        $$('#' + id + ' .chip').forEach(function (b) {
+          b.setAttribute('aria-pressed', b === btn ? 'true' : 'false');
+        });
+      });
+    });
+  }
+  
+  function montarTransmissao() {
+    $('grupoTransmissao').innerHTML = T.transmissao.opcoes.map(function (o) {
+      return '<button type="button" class="cartao" data-valor="' + escapar(o.valor) + '" aria-pressed="false">' +
+        '<span class="cartao__titulo">' + escapar(o.rotulo) + '</span></button>';
+    }).join('');
+  
+    $$('#grupoTransmissao .cartao').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        E.interesseTransmissao = btn.getAttribute('data-valor');
+        $$('#grupoTransmissao .cartao').forEach(function (b) {
+          b.setAttribute('aria-pressed', b === btn ? 'true' : 'false');
+        });
+        setTimeout(avancar, 180);
+      });
+    });
+  }
+  
+  function montarAutorizacoes() {
+    $('grupoAutorizacoes').innerHTML = [
+      { chave: 'autorizaJR', t: T.autorizacoes.jr },
+      { chave: 'autorizaAK', t: T.autorizacoes.ak }
+    ].map(function (o) {
+      return '<button type="button" class="cartao" data-chave="' + o.chave + '" aria-pressed="false">' +
+        '<span class="cartao__titulo">' + escapar(o.t.titulo) + '</span>' +
+        '<span class="cartao__descricao">' + escapar(o.t.descricao) + '</span></button>';
+    }).join('');
+  
+    $$('#grupoAutorizacoes .cartao').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var k = btn.getAttribute('data-chave');
+        E[k] = !E[k];
+        btn.setAttribute('aria-pressed', E[k] ? 'true' : 'false');
+      });
+    });
+  }
+  
+  function montarPortao() {
+    var campo = $('inPortaoEmail');
+    var btn = $('btnPortao');
+  
+    /* O e-mail digitado é uma alegação. O código que chega nele é a prova —
+       sem isso, quem soubesse o endereço de um colega veria as escolhas dele. */
+    function consultar() {
+      var email = campo.value.trim().toLowerCase();
+      if (!emailValido(email)) { mostrarErro('erPortao', T.portao.invalido, 'inPortaoEmail'); return; }
+  
+      btn.disabled = true;
+      btn.textContent = T.portao.buscando;
+      $('erPortao').textContent = '';
+  
+      google.script.run
+        .withSuccessHandler(function (res) {
+          btn.disabled = false;
+          btn.textContent = T.portao.botao;
+          if (!res || !res.ok) {
+            mostrarErro('erPortao', (res && res.erro) || T.portao.falhou);
+            return;
+          }
+          E.email = email;
+          E.emailConfirma = email;
+          window.F3.aoPedirCodigo(email, res.minutos);
+        })
+        .withFailureHandler(function () {
+          btn.disabled = false;
+          btn.textContent = T.portao.botao;
+          mostrarErro('erPortao', T.portao.falhou);
+        })
+        .solicitarCodigo(email);
+    }
+  
+    btn.addEventListener('click', consultar);
+    campo.addEventListener('keydown', function (ev) {
+      if (ev.key === 'Enter') { ev.preventDefault(); consultar(); }
+    });
+  }
+  
+  /* Chamado pela Fase 3 quando o código confere. Daqui em diante o
+     comportamento é o que o portão tinha antes de existir o código. */
+  function aoCodigoVerificado(res) {
+    if (res.encontrado) {
+      E.origem = 'existente';
+      E.protocolo = res.protocolo || '';
+      var partes = String(res.nome || '').trim().split(/\s+/);
+      E.nome = partes[0] || '';
+      E.sobrenome = partes.slice(1).join(' ');
+      E.encontros = (res.encontros || []).filter(function (id) {
+        for (var i = 0; i < DADOS.eventos.length; i++) {
+          if (DADOS.eventos[i].id === id) return DADOS.eventos[i].estado !== 'encerrado';
+        }
+        return false;
+      });
+    } else {
+      E.origem = 'novo';
+      $('inEmail').value = E.email;
+      $('inEmailConfirma').value = E.email;
+    }
+  
+    var rota = window.F3.aoVerificar(res);
+    if (rota.destino === 'reencontro') { montarReencontro(); montarEncontros(); }
+    if (rota.destino === 'ficha') montarEncontros();
+    irPara(indiceDaTela(rota.destino));
+  }
+  
+  function montarReencontro() {
+    $('reencontroTitulo').textContent = E.nome
+      ? 'Olá, ' + E.nome + '. Encontramos sua inscrição.'
+      : T.reencontro.titulo;
+  
+    var meus = DADOS.eventos.filter(function (ev) { return E.encontros.indexOf(ev.id) !== -1; });
+    $('reencontroNota').textContent = meus.length ? '' : T.reencontro.semEncontros;
+  
+    $('reencontroEventos').innerHTML = meus.map(function (ev) {
+      return '<div class="cartao cartao--marcado" style="cursor:default;">' +
+        '<span class="marca" aria-hidden="true">' + escapar(ev.letra) + '</span>' +
+        blocoQuando(ev) +
+        '<span class="cartao__titulo" style="margin-top:10px;">' + escapar(ev.titulo) + '</span>' +
+        '</div>';
+    }).join('');
+  }
+  
+  function montarConvite() {
+    var cfg = DADOS.config;
+    $('conviteEnsaio').innerHTML =
+      '<div class="agenda__evento">' +
+      '<div class="agenda__titulo">Ensaio aberto · OS-UZP</div>' +
+      '<div class="agenda__meta">' +
+      escapar((cfg.ensaioAbertoData || '') + ' · ' + (cfg.ensaioAbertoHora || '')) + '<br>' +
+      escapar(cfg.ensaioAbertoEndereco || '') + '</div>' +
+      '</div>';
+  
+    $('conviteRedes').innerHTML = [
+      { url: cfg.instagramUZP, rotulo: T.convite.botaoUZP },
+      { url: cfg.instagramJR, rotulo: T.convite.botaoJR },
+      { url: cfg.instagramAK, rotulo: T.convite.botaoAK }
+    ].filter(function (r) { return !!r.url; }).map(function (r) {
+      return '<a class="btn btn--contorno" href="' + escapar(r.url) +
+        '" target="_blank" rel="noopener">' + escapar(r.rotulo) + '</a>';
+    }).join('');
+  }
+  
+  /* ============================================================
+     REVISÃO — índice calculado em tempo de execução
+     ============================================================ */
+  
+  function nomeObra(obraId) {
+    for (var i = 0; i < DADOS.repertorio.length; i++) {
+      if (DADOS.repertorio[i].id === obraId) {
+        return DADOS.repertorio[i].compositor + ' — ' + DADOS.repertorio[i].obra;
+      }
+    }
+    return '';
+  }
+  
+  function nomeTrechoDe(obraId, trechoId) {
+    var o = obraPorId(obraId);
+    if (!o) return '';
+    for (var j = 0; j < o.trechos.length; j++) {
+      if (o.trechos[j].id === trechoId) return o.trechos[j].nome;
+    }
+    return '';
+  }
+  
+  function textoRepertorio() {
+    return E.prioridades.map(function (p, i) {
+      if (!p.obraId) return '';
+      var o = obraPorId(p.obraId);
+      if (!o) return '';
+      var t = nomeTrechoDe(p.obraId, p.trechoId);
+      return (i + 1) + '. ' + o.compositor + ' — ' + o.obra + (t ? ': ' + t : '');
+    }).filter(String).join('\n');
+  }
+  
+  function textoEncontros() {
+    return DADOS.eventos.filter(function (ev) {
+      return E.encontros.indexOf(ev.id) !== -1;
+    }).map(function (ev) {
+      return ev.dataTexto + ' · ' + ev.horaInicio.replace(':', 'h') + '–' +
+        ev.horaFim.replace(':', 'h') + ' · ' + ev.periodo;
+    }).join('\n');
+  }
+  
+  function instrumentoFinal() {
+    return E.instrumentoPrincipal === '__outro' ? E.instrumentoOutro : E.instrumentoPrincipal;
+  }
+  
+  function dataNascimento() {
+    if (!E.dia || !E.mes || !E.ano) return '';
+    return ('0' + E.dia).slice(-2) + '/' + ('0' + E.mes).slice(-2) + '/' + E.ano;
+  }
+  
+  function montarRevisao() {
+    var linhas = [
+      { rot: T.rotulos.nome, val: (E.nome + ' ' + E.sobrenome).trim(), tela: 'nome' },
+      { rot: T.rotulos.whatsapp, val: E.whatsapp, tela: 'whatsapp' },
+      { rot: T.rotulos.email, val: E.email, tela: 'email' },
+      { rot: T.rotulos.emailAdicional, val: E.emailAdicional, tela: 'email' },
+      { rot: T.rotulos.conhece, val: E.conheciaTrabalho, tela: 'conhece' },
+      { rot: T.rotulos.nascimento, val: dataNascimento(), tela: 'nascimento' },
+      { rot: T.rotulos.local, val: [E.cidade, E.estado, E.pais].filter(String).join(' · '), tela: 'local' },
+      { rot: T.rotulos.instrumento, val: instrumentoFinal(), tela: 'instrumento' },
+      { rot: T.rotulos.outrosInstrumentos, val: E.outrosInstrumentos.join(' · '), tela: 'instrumento' },
+      { rot: T.rotulos.professores, val: E.professores.join(' · '), tela: 'estudos' },
+      { rot: T.rotulos.instituicoes, val: E.instituicoes.join(' · '), tela: 'estudos' },
+      { rot: T.rotulos.experiencia, val: E.experienciaRegencia, tela: 'experiencia' },
+      { rot: T.rotulos.regeGrupo, val: E.regeGrupo + (E.qualGrupo ? ' — ' + E.qualGrupo : ''), tela: 'experiencia' },
+      { rot: T.rotulos.encontros, val: textoEncontros(), tela: 'encontros' },
+      { rot: T.rotulos.repertorio, val: textoRepertorio(), tela: 'repertorio' },
+      { rot: T.rotulos.preparo08, val: E.ciencia08 ? 'Confirmado' : '', tela: 'preparo08' },
+      { rot: T.rotulos.compromisso, val: E.cienciaFarrenc ? 'Confirmado' : '', tela: 'compromisso' },
+      { rot: T.rotulos.partitura, val: E.comoLevaPartitura, tela: 'compromisso' },
+      { rot: T.rotulos.instrumento, val: E.levaInstrumento, tela: 'compromisso' },
+      { rot: T.rotulos.transmissao, val: E.interesseTransmissao, tela: 'transmissao' },
+      { rot: T.rotulos.futuro, val: E.visaoFuturo, tela: 'futuro' },
+      { rot: T.rotulos.autorizaJR, val: E.autorizaJR ? 'Sim' : 'Não', tela: 'autorizacoes' },
+      { rot: T.rotulos.autorizaAK, val: E.autorizaAK ? 'Sim' : 'Não', tela: 'autorizacoes' }
+    ].filter(function (l) {
+      // Some a linha do repertório quando a tela nem foi exibida.
+      if (l.tela === 'repertorio' && indiceDaTela('repertorio') === -1) return false;
+      return true;
+    });
+  
+    $('listaRevisao').innerHTML = linhas.map(function (l) {
+      var vazio = !String(l.val || '').trim();
+      return '<li class="revisao__linha">' +
+        '<div>' +
+        '<div class="revisao__rotulo">' + escapar(l.rot) + '</div>' +
+        '<div class="revisao__valor' + (vazio ? ' revisao__valor--vazio' : '') + '">' +
+        (vazio ? escapar(T.revisao.vazio) : escapar(l.val).replace(/\n/g, '<br>')) +
+        '</div></div>' +
+        '<button type="button" class="revisao__editar" data-tela="' + escapar(l.tela) + '" ' +
+        'title="Editar ' + escapar(l.rot) + '">' + escapar(T.revisao.editar) + '</button>' +
+        '</li>';
+    }).join('');
+  
+    $$('#listaRevisao .revisao__editar').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var destino = btn.getAttribute('data-tela');
+        var i = indiceDaTela(destino);      // calculado agora, não guardado
+        if (i === -1) return;
+        voltarPara = 'revisao';
+        irPara(i);
+      });
+    });
+  }
+  
+  /* ============================================================
+     ENVIO
+     ============================================================ */
+  
+  function montarPacote() {
+    return {
+      nome: E.nome,
+      sobrenome: E.sobrenome,
+      email: E.email,
+      emailAdicional: E.emailAdicional,
+      whatsapp: E.whatsapp,
+      nascimento: dataNascimento(),
+      pais: E.pais || 'Brasil',
+      cep: E.cep,
+      cidade: E.cidade,
+      estado: E.estado,
+      conheciaTrabalho: E.conheciaTrabalho,
+      instrumentoPrincipal: instrumentoFinal(),
+      outrosInstrumentos: E.outrosInstrumentos.slice(),
+      professores: E.professores.slice(),
+      instituicoes: E.instituicoes.slice(),
+      ciencia: E.ciencia.slice(),
+      experienciaRegencia: E.experienciaRegencia,
+      regeGrupo: E.regeGrupo,
+      qualGrupo: E.qualGrupo,
+      encontros: E.encontros.slice(),
+      interesseTransmissao: E.interesseTransmissao,
+      visaoFuturo: E.visaoFuturo,
+      autorizaJR: E.autorizaJR,
+      autorizaAK: E.autorizaAK,
+  
+      // A fase 2 viaja junto. O servidor grava as duas abas e manda um
+      // e-mail só; duas chamadas separadas geravam dois e-mails.
+      origem: E.origem,
+      prioridades: prioridadesLimpa(),
+      cienciaFarrenc: E.cienciaFarrenc,
+      comoLevaPartitura: E.comoLevaPartitura,
+      levaInstrumento: E.levaInstrumento === 'Sim, posso levar'
+    };
+  }
+  
+  function prioridadesLimpa() {
+    return E.prioridades.filter(function (p) { return !!p.obraId; }).map(function (p) {
+      var o = obraPorId(p.obraId);
+      return {
+        compositor: o ? o.compositor : '',
+        obra: o ? o.obra : '',
+        trecho: nomeTrechoDe(p.obraId, p.trechoId)
+      };
+    });
+  }
+  
+  function pacoteFase2() {
+    return {
+      email: E.email,
+      nome: (E.nome + ' ' + E.sobrenome).trim(),
+      origem: E.origem,
+      protocolo: E.protocolo,
+      encontros: E.encontros.slice(),
+      prioridades: prioridadesLimpa(),
+      cienciaFarrenc: E.cienciaFarrenc,
+      comoLevaPartitura: E.comoLevaPartitura,
+      levaInstrumento: E.levaInstrumento === 'Sim, posso levar'
+    };
+  }
+  
+  function enviar() {
+    if (enviando) return;
+  
+    enviando = true;
+    var btn = $('btnEnviar');
+    btn.disabled = true;
+    btn.textContent = T.revisao.enviando + '…';
+    $('erEnvio').textContent = '';
+  
+    google.script.run
+      .withSuccessHandler(function (res) {
+        enviando = false;
+        btn.disabled = false;
+        btn.textContent = T.revisao.botao;
+        if (res && res.ok) {
+          E.protocolo = res.id;
+          montarFim(res);
+          irPara(indiceDaTela('fim'));
+        } else {
+          var msg = (res && res.erros && res.erros.length) ? res.erros.join(' ') : T.erros.generico;
+          $('erEnvio').textContent = msg;
+          abrirModal(T.modal.erroTitulo, msg, T.modal.erroBotao, '', fecharModal);
+        }
+      })
+      .withFailureHandler(function (err) {
+        enviando = false;
+        btn.disabled = false;
+        btn.textContent = T.revisao.botao;
+        var msg = (err && err.message) ? err.message : T.erros.generico;
+        $('erEnvio').textContent = msg;
+        abrirModal(T.modal.erroTitulo, msg, T.modal.erroBotao, '', fecharModal);
+      })
+      .salvarInscricao(montarPacote());
+  }
+  
+  /* Usuário já inscrito grava só a fase 2 — a linha original da
+     inscrição nunca é sobrescrita. */
+  function enviarFase2() {
+    if (enviando) return;
+    enviando = true;
+    var btn = $('btnEnviar');
+    btn.disabled = true;
+    btn.textContent = T.revisao.enviando + '…';
+    $('erEnvio').textContent = '';
+  
+    google.script.run
+      .withSuccessHandler(function (res) {
+        enviando = false;
+        btn.disabled = false;
+        btn.textContent = T.revisao.botao;
+        if (res && res.ok) {
+          montarFim(res);
+          irPara(indiceDaTela('fim'));
+        } else {
+          var msg = (res && res.erros && res.erros.length) ? res.erros.join(' ') : T.erros.generico;
+          $('erEnvio').textContent = msg;
+          abrirModal(T.modal.erroTitulo, msg, T.modal.erroBotao, '', fecharModal);
+        }
+      })
+      .withFailureHandler(function (err) {
+        enviando = false;
+        btn.disabled = false;
+        btn.textContent = T.revisao.botao;
+        var msg = (err && err.message) ? err.message : T.erros.generico;
+        $('erEnvio').textContent = msg;
+        abrirModal(T.modal.erroTitulo, msg, T.modal.erroBotao, '', fecharModal);
+      })
+      .salvarFase2(pacoteFase2());
+  }
+  
+  /* A inscrição foi gravada, mas o repertório não. Estado parcial precisa
+     ser visível — não dá para o aluno achar que está tudo certo. */
+  function avisarFase2(detalhe) {
+    var alvo = $('fimAviso');
+    if (alvo) {
+      alvo.hidden = false;
+      alvo.textContent = T.erros.fase2 + ' ' + detalhe;
+    }
+    abrirModal(T.modal.parcialTitulo, T.erros.fase2, T.modal.erroBotao, '', fecharModal);
+  }
+  
+  function montarFim(res) {
+    var cfg = DADOS.config;
+    $('fimProtocolo').textContent = T.fim.protocolo + ': ' + res.id;
+  
+    var selecionados = DADOS.eventos.filter(function (ev) {
+      return E.encontros.indexOf(ev.id) !== -1;
+    });
+  
+    $('fimAgenda').innerHTML = selecionados.map(function (ev) {
+      var onde = ev.modalidade === 'Online' ? (ev.link || 'Online')
+        : ev.local + (ev.endereco ? ' · ' + ev.endereco : '');
+      var ics = APP_URL ? (APP_URL + '?ics=' + encodeURIComponent(ev.id)) : '';
+      return '<div class="agenda__evento agenda__evento--marcado">' +
+        '<span class="marca" aria-hidden="true">' + escapar(ev.letra) + '</span>' +
+        blocoQuando(ev) +
+        '<div class="agenda__titulo" style="margin-top:10px;">' + escapar(ev.titulo) + '</div>' +
+        '<div class="agenda__meta">' + escapar(onde) + '</div>' +
+        '<div class="agenda__cortesia">Se quiser, guarde na sua agenda:</div>' +
+        '<div class="agenda__botoes">' +
+        '<a class="agenda__botao" href="' + escapar(urlGoogleCalendar(ev)) +
+        '" target="_blank" rel="noopener">' + escapar(T.fim.googleCalendar) + '</a>' +
+        (ics ? '<a class="agenda__botao" href="' + escapar(ics) + '" target="_blank" rel="noopener">' +
+          escapar(T.fim.outroCalendario) + '</a>' : '') +
+        '</div></div>';
+    }).join('');
+  
+    var portaFase3 = $('fimPreparo');
+    if (portaFase3) {
+      portaFase3.hidden = false;
+      portaFase3.textContent = T.metodo.botaoAbrir || 'Continuar para o preparo da obra';
+    }
+  
+    $('fimRedes').innerHTML = [
+      { url: cfg.instagramJR, rotulo: T.convite.botaoJR },
+      { url: cfg.instagramAK, rotulo: T.convite.botaoAK },
+      { url: cfg.instagramUZP, rotulo: T.convite.botaoUZP }
+    ].filter(function (r) { return !!r.url; }).map(function (r) {
+      return '<a class="btn btn--contorno" href="' + escapar(r.url) +
+        '" target="_blank" rel="noopener">' + escapar(r.rotulo) + '</a>';
+    }).join('');
+  }
+  
+  function urlGoogleCalendar(ev) {
+    function utc(dataISO, hora) {
+      var p = dataISO.split('-'), h = hora.split(':');
+      var d = new Date(Date.UTC(+p[0], +p[1] - 1, +p[2], +h[0] + 3, +h[1], 0));
+      return d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+    }
+    var local = ev.modalidade === 'Online' ? (ev.link || 'Online')
+      : ev.local + (ev.endereco ? ' — ' + ev.endereco : '');
+    return 'https://calendar.google.com/calendar/render?action=TEMPLATE' +
+      '&text=' + encodeURIComponent('Masterclass de Regência · ' + ev.titulo) +
+      '&dates=' + utc(ev.dataISO, ev.horaInicio) + '/' + utc(ev.dataISO, ev.horaFim || ev.horaInicio) +
+      '&location=' + encodeURIComponent(local) +
+      '&details=' + encodeURIComponent(ev.subtitulo + '\n\n' + ev.descricao + (ev.link ? '\n\n' + ev.link : ''));
+  }
+  
+  /* ============================================================
+     LIGAÇÕES
+     ============================================================ */
+  
+  function ligarEventos() {
+    $('btnComecar').addEventListener('click', function () { irPara(indiceDaTela('nome')); });
+    montarPortao();
+    $('btnVoltar').addEventListener('click', voltar);
+    $('fimPreparo').addEventListener('click', function () { window.F3.abrirPreparo(); });
+    $('btnEnviar').addEventListener('click', function () {
+      if (E.origem === 'existente') enviarFase2(); else enviar();
+    });
+  
+    $$('[data-avancar]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        if (btn.getAttribute('data-t-texto') === 'futuro.botaoPular') $('inFuturo').value = '';
+        avancar();
+      });
+    });
+  
+    $('btnEmailAdicional').addEventListener('click', function () {
+      var bloco = $('blocoEmailAdicional');
+      bloco.hidden = !bloco.hidden;
+      this.hidden = !bloco.hidden ? true : false;
+      if (!bloco.hidden) $('inEmailAdicional').focus();
+    });
+  
+    $('inWhatsapp').addEventListener('input', function () {
+      this.value = mascaraTelefone(this.value);
+    });
+  
+    $('modalCancelar').addEventListener('click', fecharModal);
+    $('modalConfirmar').addEventListener('click', function () {
+      var acao = acaoConfirmar;
+      fecharModal();
+      if (acao) acao();
+    });
+  
+    document.addEventListener('keydown', function (ev) {
+      if (ev.key === 'Escape' && !$('modal').hidden) fecharModal();
+      if (ev.key !== 'Enter') return;
+      var alvo = ev.target;
+      if (!alvo || alvo.tagName === 'TEXTAREA' || alvo.tagName === 'BUTTON' || alvo.tagName === 'A') return;
+      if (alvo.tagName === 'INPUT' && alvo.id === 'inEstudoOutro') return;
+      var vis = telasVisiveis();
+      var tela = vis[indiceAtual];
+      var secao = document.querySelector('.tela[data-tela="' + tela.id + '"]');
+      if (secao && secao.querySelector('[data-avancar]')) { ev.preventDefault(); avancar(); }
+    });
+  }
+  
+  /* ============================================================
+     PARTIDA
+     ============================================================ */
+  
+  function iniciar() {
+    aplicarTextos();
+    montarConhece();
+    montarBio();
+    montarNascimento();
+    montarLocal();
+    montarInstrumento();
+    montarEstudos();
+    montarExperiencia();
+    montarEncontros();
+    montarRepertorio();
+    montarTransmissao();
+    montarAutorizacoes();
+    montarConvite();
+    montarPreparo08();
+    montarCompromisso();
+    montarBanner('banner08', ehDia08);
+    montarBanner('banner08b', ehDia08);
+    montarBanner('banner09', ehDia09);
+    montarAbertura();
+    window.F3.iniciar({
+      E: E,
+      dados: DADOS,
+      ir: irPara,
+      indiceDaTela: indiceDaTela,
+      blocoQuando: blocoQuando,
+      aoVerificado: aoCodigoVerificado
+    });
+    ligarEventos();
+  
+    document.querySelector('.tela[data-tela="carregando"]').remove();
+    irPara(0, true);
+  }
+  
+  google.script.run
+    .withSuccessHandler(function (res) {
+      DADOS = res;
+      try {
+        iniciar();
+      } catch (err) {
+        document.querySelector('.tela[data-tela="carregando"]').innerHTML =
+          '<div class="carregando">' + escapar(err.message) + '</div>';
+      }
+    })
+    .withFailureHandler(function (err) {
+      var el = document.querySelector('.tela[data-tela="carregando"]');
+      if (el) {
+        el.innerHTML = '<div class="carregando">Não foi possível carregar.<br>' +
+          escapar(err && err.message ? err.message : '') + '</div>';
+      }
+    })
+    .getDadosIniciais();
+  
+})();
+</script>
+  

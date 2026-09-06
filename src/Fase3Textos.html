@@ -1,0 +1,140 @@
+<script>
+/* ============================================================
+   FASE 3 · TEXTOS
+   Carrega depois de Textos: acrescenta chaves novas e reescreve
+   as poucas do portão que mudaram de sentido com o código.
+   Nenhuma lógica aqui.
+   ============================================================ */
+
+T.blocos = ['Contato', 'Perfil', 'Encontros', 'Envio', 'Preparo'];
+
+/* O portão agora manda um código antes de abrir. */
+T.portao.apoio = 'Digite seu e-mail. Mandamos um código de seis dígitos para confirmar que é você.';
+T.portao.botao = 'Receber código';
+T.portao.buscando = 'Enviando…';
+
+T.codigo = {
+  olho: 'Confirme que é você',
+  titulo: 'Digite o código que chegou no seu e-mail.',
+  apoio: 'Mandamos seis dígitos para {email}. Ele vale por {minutos} minutos.',
+  botao: 'Entrar',
+  entrando: 'Verificando…',
+  reenviar: 'Não chegou? Enviar de novo',
+  reenviando: 'Enviando…',
+  reenviado: 'Enviamos outro código.',
+  espere: 'Aguarde {segundos}s para pedir de novo',
+  nota: 'O código existe por um motivo simples: sem ele, qualquer pessoa que soubesse o seu e-mail veria as suas escolhas.',
+  incompleto: 'Faltam dígitos.',
+  falhou: 'Não foi possível verificar agora. Tente novamente.'
+};
+
+T.ficha = {
+  olho: 'Sua situação',
+  titulo: 'Está tudo registrado.',
+  apoio: 'É isto que consta na nossa planilha. Esta tela é informativa — não há mais troca de trecho a fazer.',
+  rotuloEncontros: 'Seus encontros',
+  rotuloObras: 'O que você vai reger',
+  semObras: 'Você não indicou trecho para o dia 08. Pode escolher qualquer uma das quatro obras para o preparo abaixo.',
+  nota: 'Falta uma etapa antes da música: o preparo da obra.',
+  botao: 'Ver o que falta'
+};
+
+T.metodo = {
+  olho: 'Etapa III de III',
+  titulo: 'Antes da música, dez perguntas.',
+  apoio: 'Metodologia da Academia Kephra e do maestro João Rocha: toda obra que se vai reger passa primeiro por estas dez perguntas. Só depois se abre a partitura.',
+  passos: [
+    'Nome da obra',
+    'Nome do(a) compositor(a)',
+    'Datas de nascimento e de morte',
+    'Data de composição',
+    'Data de estreia',
+    'Outras estreias do mesmo ano',
+    'O que acontecia no mundo — Europa, EUA e Brasil',
+    'A obra composta imediatamente antes',
+    'A obra composta imediatamente depois',
+    'Local, regência e conjunto da estreia'
+  ],
+  narrativa: 'Nenhuma obra nasce no vácuo. O compositor é fruto do meio em que viveu — do que ouvia, do que temia, do que se discutia na rua da casa dele — e a obra carrega isso, queira ele ou não. Conhecer esse ambiente não substitui a análise harmônica nem a análise de forma: essas são o chão do ofício, e é delas que trataremos no dia 09. Mas é o que separa a sua concepção da obra da imitação da concepção de outro. Quem sabe de onde a música veio tem do que discordar — e a interpretação começa exatamente aí.',
+  rotuloEscolha: 'Sobre qual obra?',
+  aviso: 'São {minutos} minutos, mais ou menos. Faça de uma vez: nada é gravado antes de você confirmar no fim. Dá para voltar quantas vezes quiser — as respostas ficam guardadas enquanto esta aba estiver aberta.',
+  refazer: 'Você já respondeu sobre esta obra ({pontos} pontos). Responder de novo grava um novo resultado.',
+  botao: 'Começar',
+  botaoAbrir: 'Continuar para o preparo da obra'
+};
+
+T.quiz = {
+  voltar: 'Voltar',
+  avancar: 'Continuar',
+  confirmar: 'Confirmar respostas',
+  pular: 'Não sei — seguir sem responder',
+  vazio: 'Escolha uma opção ou use "não sei" abaixo.',
+  vazioTexto: 'Escreva algo ou use "não sei" abaixo.',
+  vazioLigar: 'Ligue todos os itens da esquerda, ou use "não sei" abaixo.',
+  vazioOrdenar: 'Monte a ordem completa, ou use "não sei" abaixo.',
+  ligarAjuda: 'Toque em um item da esquerda e depois no da direita. Para desfazer, toque de novo no da esquerda.',
+  ordenarVazio: 'Toque nos itens abaixo na ordem que você acha certa.',
+  ordenarBanco: 'Disponíveis',
+  ordenarFila: 'Sua ordem',
+  barraLegenda: 'arraste para escolher o ano',
+  barraIntocada: 'arraste a barra',
+  carregando: 'Montando as perguntas',
+  corrigindo: 'Corrigindo suas respostas',
+  gravando: 'Registrando suas confirmações',
+  falhou: 'Não foi possível corrigir agora. Tente novamente.'
+};
+
+T.placar = {
+  olho: 'Seu preparo',
+  botao: 'Continuar',
+  verGabarito: 'Ver resposta por resposta',
+  esconderGabarito: 'Esconder as respostas',
+  contagem: '{acertos} de {total} perguntas inteiramente corretas',
+  email: 'Mandamos este resultado, com todas as respostas e as fontes, para o seu e-mail.',
+  emailFalhou: 'O resultado ficou registrado, mas o e-mail não saiu. Fale com a gente se precisar dele.',
+  selos: { certo: 'Acertou', quase: 'Quase', errado: 'Escapou' },
+  sua: 'Você respondeu: ',
+  fonte: 'Fonte: '
+};
+
+T.partituras = {
+  olho: 'Partituras',
+  titulo: 'As edições estão prontas para você.',
+  apoio: 'Grades e reduções para piano das quatro obras, reunidas numa pasta do Drive. O acesso já está liberado.',
+  rubricaPasta: 'Pasta no Drive',
+  abrir: 'Abrir a pasta',
+  curadoria: 'A curadoria das edições, entre as disponíveis no IMSLP, é do maestro João Rocha. O critério foi número de compasso, letras de ensaio e qualidade da edição.',
+  livre: 'Se você já providenciou ou imprimiu outra edição, tudo bem — isso não é fator limitante.',
+  ciencia: 'Estou ciente de que tenho acesso à pasta com as partituras.',
+  falta: 'Confirme que você tem acesso à pasta.',
+  botao: 'Continuar'
+};
+
+T.analise = {
+  olho: 'No dia 09',
+  titulo: 'A análise terá um vocabulário comum.',
+  apoio: 'A análise do primeiro movimento da {obra} vai se apoiar em muitos dos princípios da Sonata Theory.',
+  rubricaLivro: 'Referência',
+  conceitos: 'De lá virão os termos que usaremos: rotação, zonas de ação (P, TR, S, C), cesura medial, EEC e os tipos de sonata. Não é preciso ter lido o livro — é preciso saber de onde vem a palavra que se está usando. Vocabulário comum é o que faz uma sala inteira conseguir discutir a mesma passagem.',
+  ciencia: 'Estou ciente de que a análise se baseará nesses princípios.',
+  falta: 'Confirme que você está ciente.',
+  botao: 'Confirmar tudo'
+};
+
+T.selo = {
+  olho: 'Está feito',
+  titulo: '{nome}, seu preparo está registrado.',
+  apoio: 'Nos vemos no encontro. Leve as perguntas que sobraram — elas são melhores do que as respostas prontas.',
+  nota: 'O resultado completo, com as fontes, está no seu e-mail.',
+  rubricaResumo: 'O que ficou registrado',
+  voltando: 'Voltando ao início em {segundos}s',
+  podeFechar: 'Você já pode fechar esta aba.',
+  rotuloObra: 'Obra',
+  rotuloPontos: 'Pontos',
+  rotuloCiencias: 'Ciências',
+  ciencias: 'Partituras · Sonata Theory'
+};
+
+T.erros = T.erros || {};
+T.erros.sessao = 'Sua sessão expirou. Volte ao início e peça um novo código.';
+</script>

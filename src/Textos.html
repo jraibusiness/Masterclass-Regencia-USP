@@ -1,0 +1,466 @@
+<script>
+/* ============================================================
+   TEXTOS — todo o conteúdo editorial da plataforma.
+   Nenhuma lógica aqui. Nenhum scriptlet aqui.
+   ============================================================ */
+  
+var T = {
+  
+  /* ---------- Portão ---------- */
+  portao: {
+    olho: 'Academia Kephra · ECA/USP',
+    titulo: 'Masterclasses de Regência Orquestral',
+    apoio: 'Digite seu e-mail. Se você já se inscreveu, seguimos direto para a escolha dos trechos. Se ainda não, fazemos a inscrição agora.',
+    rotulo: 'Seu e-mail',
+    botao: 'Continuar',
+    buscando: 'Verificando…',
+    invalido: 'Digite um e-mail válido.',
+    falhou: 'Não foi possível verificar agora. Tente novamente.'
+  },
+  
+  reencontro: {
+    olho: 'Bem-vindo de volta',
+    titulo: 'Encontramos sua inscrição.',
+    apoio: 'Falta escolher os trechos que você quer reger no dia 08 e confirmar o compromisso do dia 09.',
+    semEncontros: 'Sua inscrição não registrou nenhum encontro presencial. Confirme abaixo de quais você participa.',
+    botao: 'Continuar'
+  },
+  
+  /* ---------- Abertura ---------- */
+  abertura: {
+    olho: 'Academia Kephra · ECA/USP',
+    titulo: 'Masterclasses de Regência Orquestral',
+    subtitulo: 'Maestro João Rocha',
+    apoio: 'Três encontros, como extensão da residência de João Rocha como maestro convidado da OCAM — Orquestra de Câmara da ECA/USP.',
+    agenda: 'As três datas',
+    escolhaDepois: 'Você indica de quais vai participar mais adiante.',
+    destaque: 'Alunos da ECA têm presença garantida. Ainda assim, o cadastro é obrigatório para todos.',
+    justificativa: 'É por ele que organizamos o repertório, dimensionamos as turmas e enviamos os avisos. Leva menos de três minutos.',
+    botao: 'Fazer minha inscrição'
+  },
+  
+  /* ---------- Perguntas ---------- */
+  nome: {
+    olho: 'Contato',
+    titulo: 'Vamos começar pelo seu nome.',
+    rotuloNome: 'Nome',
+    rotuloSobrenome: 'Sobrenome'
+  },
+  
+  whatsapp: {
+    olho: 'Contato',
+    titulo: 'Qual o seu WhatsApp?',
+    apoio: 'É por onde avisamos sobre mudanças de última hora.',
+    rotulo: 'Número com DDD',
+    placeholder: '(11) 90000-0000'
+  },
+  
+  email: {
+    olho: 'Contato',
+    titulo: 'E o seu e-mail?',
+    apoio: 'É para lá que vai a confirmação da inscrição e o material dos encontros.',
+    rotulo: 'E-mail',
+    rotuloConfirma: 'Confirme o e-mail',
+    rotuloAdicional: 'E-mail adicional',
+    botaoAdicional: 'Adicionar um segundo e-mail'
+  },
+  
+  conhece: {
+    olho: 'Perfil',
+    titulo: 'Você já conhecia o trabalho do maestro João Rocha?',
+    sim: 'Sim, já conhecia',
+    nao: 'Ainda não'
+  },
+  
+  bio: {
+    olho: 'Quem conduz',
+    titulo: 'João Rocha',
+    apoio: 'Vale trinta segundos para você saber com quem vai trabalhar.',
+    botaoPular: 'Pular e continuar',
+    botaoSeguir: 'Continuar',
+  
+    grupos: [
+      {
+        rubrica: 'Formação',
+        itens: [
+          'Bacharelado em Regência — Unicamp',
+          'Mestrado (MM) em Regência Orquestral — College-Conservatory of Music, University of Cincinnati · bolsa integral',
+          'Doutorado (DMA, ABD) em Regência Orquestral — University of Kentucky · bolsa integral',
+          'Estudos avançados — Hochschule für Musik und Theater Rostock, Alemanha · bolsista do DAAD',
+          'Mais de <strong>US$ 300 mil</strong> em bolsas e apoios competitivos no Brasil, na Alemanha e nos Estados Unidos'
+        ]
+      },
+      {
+        rubrica: 'Sob orientação de',
+        itens: [
+          'Marin Alsop, Nicolas Pasquet, Neil Thomson, John Nardolillo, Mark Gibson, Isaac Karabtchevsky, Roberto Tibiriçá, Fabio Mechetti e Eduardo Ostergren',
+          'Mentoria do compositor <strong>Gilberto Mendes</strong>, de 2006 a 2016'
+        ]
+      },
+      {
+        rubrica: 'Salas e produções',
+        itens: [
+          '<strong>Carnegie Hall</strong> — concerto do centenário da University of Kentucky Symphony Orchestra',
+          '<strong>Estates Theater</strong>, Praga — produção integral de <em>Le Nozze di Figaro</em>',
+          '<strong>Sala São Paulo</strong> — 25ª temporada da série de concertos da TUCCA, a mesma instituição que traz a Filarmônica de Berlim ao Brasil em outubro de 2026',
+          'Produções ao lado de Gil Shaham, do Quinteto de Sopros da Filarmônica de Berlim e da Cincinnati Symphony'
+        ]
+      },
+      {
+        rubrica: 'Orquestras que regeu',
+        itens: [
+          'OSUSP · OSBA · OSPA · OSES · Sinfônica de Sorocaba · Camerata Antiqua de Curitiba · Sinfônica da Unicamp · University of Kentucky Symphony Orchestra · Vortz Orchestra · OCAM, dentre outras'
+        ]
+      },
+      {
+        rubrica: 'Como compositor',
+        itens: [
+          '<em>Inês</em>, sua primeira ópera, com libreto do Prof. Jorge Coli — escrita, com excertos já executados',
+          '<em>O Almirante Negro</em>, ópera encomendada pelo Theatro Municipal de São Paulo, em parceria com a dramaturga <strong>Dione Carlos</strong>, vencedora dos Prêmios Shell e APCA de Melhor Dramaturgia',
+          '<em>Os Jardins das Praias de Santos</em>, dedicada a Gilberto Mendes e gravada pela Orquestra Sinfônica Brasileira',
+          '<em>Noturna</em>, gravada pela Sinfônica de Indaiatuba em álbum pré-selecionado ao Prêmio BTG Pactual da Música Brasileira',
+          '<em>Nagarê</em>, gravada pelo pianista Antonio Eduardo no álbum <em>Porto — A Música Que Saiu de Santos</em>',
+          '<em>Deliriamentos… sobre um tema de Guinga</em>, estreia norte-americana à frente da UKSO',
+          '<em>Sinfonietta Concertante</em>, executada pela Cordancia Chamber Orchestra',
+          'Obras interpretadas por Emmanuele Baldini (spalla da Osesp e regente da Sinfônica do Conservatório de Tatuí), Fellipe Oliveira (baixo-barítono, EMESP), Hercules Gomes (piano) e Fabio Cury (fagote), que estreia <em>Chantelunette</em> em 2026',
+          'Obras exibidas no ICAMus, em Prato, na Itália',
+          '1º lugar nas etapas Regional e Nacional do Concurso Eleazar de Carvalho, em 2013'
+        ]
+      },
+      {
+        rubrica: 'Rádio, televisão e projetos',
+        itens: [
+          'Roteiro e apresentação da série <em>Brasil Afro-Sinfônico</em> — Rádio Cultura FM, Fundação Padre Anchieta, quatro episódios, novembro de 2024',
+          '1º lugar no Santos Arte Preta 2025, com as palestras derivadas do projeto Brasil Afro-Sinfônico',
+          'Jurado da final da 20ª temporada do <em>Prelúdio</em> — TV Cultura',
+          'Direção artística da campanha Tramontina × Spotify <em>Flavor of Songs</em>, finalista no Cannes Lions',
+          'Fundador das <strong>Edições Kephra</strong>, editora criada para dar a estudantes e profissionais de regência acesso a partituras orquestrais no Brasil',
+          'Fundador da Studio Kephra e da Opus AI, que constrói sistemas de automação para artistas e instituições culturais',
+          'Matérias na Globo e na Deutsche Welle'
+        ]
+      },
+      {
+        rubrica: 'Agora',
+        itens: [
+          '<strong>Maestro titular e diretor artístico da Orquestra Sinfônica da Universidade Zumbi dos Palmares.</strong> A primeira apresentação pública será em 20 de novembro, no Prêmio Raça — provavelmente a primeira orquestra brasileira com direção musical majoritariamente negra.'
+        ]
+      }
+    ],
+  
+    prosa: 'Depois de dois anos na Alemanha e dez nos Estados Unidos, João oficializou em 2026 a volta ao Brasil. Gosta de stand-up, brasileiro e americano. Surfa menos do que gostaria. A meta para 2027 é comprar um cachorro.'
+  },
+  
+  nascimento: {
+    olho: 'Perfil',
+    titulo: 'Quando você nasceu?',
+    apoio: 'Só para entendermos a faixa etária do grupo.',
+    dia: 'Dia', mes: 'Mês', ano: 'Ano'
+  },
+  
+  local: {
+    olho: 'Perfil',
+    titulo: 'Onde você mora?',
+    brasil: 'No Brasil',
+    exterior: 'Fora do Brasil',
+    rotuloCep: 'CEP',
+    rotuloCidade: 'Cidade',
+    rotuloEstado: 'Estado',
+    rotuloPais: 'País',
+    buscando: 'Buscando…',
+    cepInvalido: 'CEP não encontrado. Preencha cidade e estado à mão.'
+  },
+  
+  instrumento: {
+    olho: 'Perfil',
+    titulo: 'Qual o seu instrumento de maior proficiência?',
+    rotuloOutros: 'Já estudou outros instrumentos?',
+    rotuloOutro: 'Outro — qual?',
+    placeholderOutro: 'Digite o instrumento'
+  },
+  
+  estudos: {
+    olho: 'Perfil',
+    titulo: 'Com quem você estudou regência?',
+    apoio: 'Professores, orientadores, maestros com quem você fez masterclass. Acrescente um por vez.',
+    rotuloProfessor: 'Nome do professor ou maestro',
+    placeholderProfessor: 'Ex.: Roberto Tibiriçá',
+    rotuloInstituicoes: 'E onde você estudou?',
+    apoioInstituicoes: 'Marque o que se aplicar. Se faltar algo, acrescente abaixo.',
+    rotuloInstituicaoOutra: 'Outra instituição ou festival',
+    placeholderInstituicao: 'Ex.: Festival de Inverno de Ouro Preto',
+    vazio: 'Nenhum ainda'
+  },
+  
+  experiencia: {
+    olho: 'Perfil',
+    titulo: 'Há quanto tempo você estuda regência orquestral?',
+    rotuloRege: 'Você rege ou já regeu algum grupo?',
+    rotuloQual: 'Qual grupo?',
+    placeholderQual: 'Nome ou tipo do grupo'
+  },
+  
+  encontros: {
+    olho: 'Encontros',
+    titulo: 'De quais encontros você pode participar?',
+    apoio: 'Marque todos os que couberem na sua agenda.',
+    online: 'Online',
+    jaComecou: 'Já começou',
+    encerrado: 'Inscrições encerradas',
+    cienciaRotulo: 'Estou ciente de que este encontro já começou e entrarei com ele em andamento.',
+    cienciaErro: 'Marque a ciência para seguir com este encontro, ou desmarque-o.',
+    nota: 'Cada encontro deixa de aceitar inscrições uma hora depois de começar.'
+  },
+  
+  repertorio: {
+    olho: 'Encontro do dia 08',
+    titulo: 'Que trechos você quer reger?',
+    apoio: 'Escolha dois trechos, da mesma obra ou de obras distintas, em ordem de prioridade. Haverá cerca de 10 minutos de pódio por participante, com pianista correpetidor.',
+    rotuloObra: 'Obra',
+    rotuloTrecho: 'Trecho',
+    selecioneObra: 'Selecione uma obra',
+    selecioneTrecho: 'Selecione um trecho',
+    prioridade: ['Primeira prioridade', 'Segunda prioridade'],
+    erro: 'Escolha ao menos a primeira prioridade.',
+    erroTrecho: 'Selecione o trecho da obra que você escolheu.'
+  },
+  
+  preparo08: {
+    olho: 'Antes de escolher',
+    titulo: 'Você vai reger.',
+    apoio: 'Este encontro é de prática de pódio. Você sobe, rege e recebe orientação na hora, com pianista correpetidor acompanhando.',
+    itens: [
+      'Cerca de <strong>10 minutos de pódio</strong> por participante, conforme distribuição a ser divulgada.',
+      'Você escolhe os trechos na próxima tela — <strong>dois</strong>, em ordem de prioridade.',
+      'Em princípio, haverá tempo hábil para o trabalho de um trecho por pessoa. A segunda escolha é reserva.',
+      'Leve seu instrumento, se puder. Serve de apoio à prática dos colegas.'
+    ],
+    preparo: 'Não se espera domínio integral das obras. Espera-se preparo técnico efetivo do trecho escolhido — clareza quanto à forma, à harmonia e ao plano de ensaio.',
+    cienciaRotulo: 'Entendi: no dia 08 eu rejo, com pianista, os trechos que escolher agora.',
+    cienciaErro: 'Confirme que entendeu para seguir.',
+    botao: 'Escolher meus trechos'
+  },
+  
+  compromisso: {
+    olho: 'Atenção — este é diferente',
+    titulo: 'Aqui você não rege.',
+    contraste: 'O dia 08 é prática de pódio. O dia 09 é outra coisa: análise de partitura, em mesa, todos juntos.',
+    apoio: 'Vamos abrir a partitura e preparar juntos. Isso só funciona se você chegar tendo estudado antes.',
+    itens: [
+      'O foco é o <strong>primeiro movimento da Sinfonia nº 3, op. 36, de Louise Farrenc.</strong>',
+      'Análise comparada de partitura e de gravações.',
+      'Havendo quarteto disponível, haverá prática instrumental.',
+      'Os ensaios da OCAM seguem abertos a você — terças, quintas e sextas, no Camargo Guarnieri. Vale muito acompanhar antes.'
+    ],
+    cienciaRotulo: 'Comprometo-me a estudar e analisar o primeiro movimento da Sinfonia nº 3 de Louise Farrenc, com audição atenta da obra, e a chegar preparado.',
+    cienciaErro: 'Precisamos da sua confirmação para seguir.',
+    partituraRotulo: 'Como você vai levar a partitura?',
+    partituraOpcoes: ['Impressa', 'No tablet', 'Ainda não sei'],
+    partituraErro: 'Escolha uma das opções.',
+    instrumentoRotulo: 'Pode levar seu instrumento?',
+    instrumentoApoio: 'Serve de apoio à prática dos colegas.',
+    instrumentoOpcoes: ['Sim, posso levar', 'Não vou conseguir']
+  },
+  
+  transmissao: {
+    olho: 'Encontros',
+    titulo: 'Você teria interesse em acompanhar os encontros presenciais por transmissão ao vivo?',
+    apoio: 'Se houver procura suficiente, organizamos uma transmissão pelo YouTube ou pelo Instagram. Responda mesmo que pretenda estar presente.',
+    opcoes: [
+      { valor: 'Sim, tenho muito interesse', rotulo: 'Sim, tenho muito interesse' },
+      { valor: 'Sim, como alternativa', rotulo: 'Sim, se eu não puder ir' },
+      { valor: 'Não', rotulo: 'Não, prefiro presencial' }
+    ]
+  },
+  
+  futuro: {
+    olho: 'Perfil',
+    titulo: 'Como você se vê atuando daqui a alguns anos?',
+    apoio: 'Onde você trabalha? Que grupos rege? Quanto você ganha? Escreva sem filtro — ninguém além de nós vai ler.',
+    placeholder: 'Escreva o que vier à cabeça.',
+    botaoPular: 'Prefiro não responder'
+  },
+  
+  autorizacoes: {
+    olho: 'Autorizações',
+    titulo: 'Podemos manter contato com você?',
+    apoio: 'As duas respostas são independentes, e nenhuma delas afeta a sua inscrição.',
+    jr: {
+      titulo: 'João Rocha — maestro e compositor',
+      descricao: 'Novidades sobre concertos, estreias, gravações e a temporada da Orquestra Sinfônica da Universidade Zumbi dos Palmares.'
+    },
+    ak: {
+      titulo: 'Academia Kephra',
+      descricao: 'Masterclasses, cursos, o programa de mentoria em regência e as publicações das Edições Kephra.'
+    },
+    lgpd: ''
+  },
+  
+  convite: {
+    olho: 'Fica o convite',
+    titulo: 'Orquestra Sinfônica da Universidade Zumbi dos Palmares',
+    apoio: 'Em julho de 2026 João Rocha assumiu a direção artística da OS-UZP — provavelmente a primeira orquestra brasileira com direção musical majoritariamente negra.',
+    ensaio: 'No dia 25 de setembro abrimos ao público o nosso 2º ensaio. Você é nosso convidado.',
+    seguir: 'Se quiser acompanhar',
+    botaoUZP: 'Universidade Zumbi dos Palmares',
+    botaoJR: 'João Rocha · maestro',
+    botaoAK: 'Academia Kephra',
+    botaoSeguir: 'Continuar'
+  },
+  
+  revisao: {
+    olho: 'Quase lá',
+    titulo: 'Confira antes de enviar.',
+    apoio: 'Toque em editar para corrigir qualquer coisa. Você volta direto para cá.',
+    botao: 'Confirmar inscrição',
+    editar: 'Editar',
+    vazio: 'não informado',
+    enviando: 'Enviando'
+  },
+  
+  fim: {
+    olho: 'Inscrição confirmada',
+    titulo: 'Pronto. Sua vaga está garantida.',
+    apoio: 'Enviamos um e-mail com todos os seus dados e os detalhes de cada encontro. Se não chegar em alguns minutos, confira a caixa de spam.',
+    protocolo: 'Protocolo',
+    agenda: 'Adicione na sua agenda',
+    googleCalendar: 'Google Agenda',
+    outroCalendario: 'Outro calendário',
+    redes: 'Acompanhe o trabalho'
+  },
+  
+  /* ---------- Rótulos da revisão ---------- */
+  rotulos: {
+    nome: 'Nome completo',
+    email: 'E-mail',
+    emailAdicional: 'E-mail adicional',
+    whatsapp: 'WhatsApp',
+    nascimento: 'Nascimento',
+    local: 'Onde mora',
+    conhece: 'Já conhecia o trabalho',
+    instrumento: 'Instrumento principal',
+    outrosInstrumentos: 'Outros instrumentos',
+    professores: 'Com quem estudou',
+    instituicoes: 'Onde estudou',
+    experiencia: 'Experiência em regência',
+    regeGrupo: 'Rege ou já regeu',
+    encontros: 'Encontros',
+    repertorio: 'Trechos escolhidos',
+    preparo08: 'Ciente do dia 08',
+    compromisso: 'Compromisso do dia 09',
+    partitura: 'Partitura',
+    instrumento: 'Leva instrumento',
+    transmissao: 'Transmissão ao vivo',
+    futuro: 'Visão de futuro',
+    autorizaJR: 'Contato — João Rocha',
+    autorizaAK: 'Contato — Academia Kephra'
+  },
+  
+  /* ---------- Blocos do topo ---------- */
+  blocos: ['Contato', 'Perfil', 'Encontros', 'Envio'],
+  
+  /* ---------- Navegação ---------- */
+  nav: {
+    voltar: 'Voltar',
+    continuar: 'Continuar',
+    pular: 'Pular'
+  },
+  
+  /* ---------- Erros ---------- */
+  erros: {
+    nome: 'Precisamos do seu nome.',
+    sobrenome: 'Precisamos do seu sobrenome.',
+    email: 'Digite um e-mail válido.',
+    emailConfirma: 'Os dois e-mails não são iguais.',
+    emailAdicional: 'O e-mail adicional não parece válido.',
+    whatsapp: 'Digite um número válido, com DDD.',
+    nascimento: 'Selecione dia, mês e ano.',
+    cidade: 'Informe a cidade.',
+    estado: 'Informe o estado.',
+    pais: 'Informe o país.',
+    instrumento: 'Selecione o seu instrumento principal.',
+    instrumentoOutro: 'Digite o nome do instrumento.',
+    experiencia: 'Selecione o tempo de experiência.',
+    regeGrupo: 'Responda sim ou não.',
+    qualGrupo: 'Diga qual grupo.',
+    encontros: 'Selecione ao menos um encontro.',
+    encontrosEncerrados: 'Todos os encontros já começaram. Fale com a organização.',
+    transmissao: 'Escolha uma das opções.',
+    generico: 'Não foi possível enviar. Tente novamente em instantes.',
+    fase2: 'Sua inscrição foi registrada, mas as escolhas de repertório não. Escreva para contato@studiokephra.org informando o seu protocolo.'
+  },
+  
+  /* ---------- Rodapé ---------- */
+  rodape: {
+    lgpd: 'Tratamos seus dados conforme a LGPD (Lei nº 13.709/2018). Coletamos apenas o necessário e não compartilhamos suas informações com terceiros.',
+    contato: 'Dúvidas: contato@studiokephra.org',
+    creditoPrefixo: 'Plataforma desenvolvida por',
+    creditoNome: 'Opus AI',
+    creditoUrl: 'https://opusaitech.com/'
+  },
+  
+  modal: {
+    sairTitulo: 'Quer recomeçar?',
+    sairTexto: 'Todas as respostas que você deu até agora serão perdidas.',
+    sairConfirmar: 'Sim, recomeçar',
+    sairCancelar: 'Continuar preenchendo',
+    erroTitulo: 'Algo deu errado',
+    parcialTitulo: 'Inscrição feita, repertório não',
+    erroBotao: 'Entendi'
+  }
+};
+  
+/* ============================================================
+   LISTAS DE OPÇÕES
+   ============================================================ */
+  
+var OPCOES = {
+  
+  instrumentos: [
+    'Violino', 'Viola', 'Violoncelo', 'Contrabaixo', 'Harpa',
+    'Flauta', 'Oboé', 'Clarinete', 'Fagote', 'Saxofone',
+    'Trompa', 'Trompete', 'Trombone', 'Tuba',
+    'Percussão', 'Piano', 'Cravo', 'Órgão', 'Violão',
+    'Canto', 'Regência'
+  ],
+  
+  experiencia: [
+    'Ainda não estudei formalmente',
+    'Menos de 1 ano',
+    'De 1 a 3 anos',
+    'De 3 a 5 anos',
+    'De 5 a 10 anos',
+    'Mais de 10 anos'
+  ],
+  
+  regeGrupo: [
+    'Sim, rejo atualmente',
+    'Já reji, mas não no momento',
+    'Ainda não'
+  ],
+  
+  instituicoesSugeridas: [
+    'ECA/USP',
+    'Unicamp',
+    'UNESP',
+    'EMESP Tom Jobim',
+    'Conservatório de Tatuí',
+    'Conservatório Carlos Gomes',
+    'Academia de Música da Osesp',
+    'Festival de Campos do Jordão',
+    'Ainda não estudei formalmente'
+  ],
+  
+  meses: [
+    'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+  ],
+  
+  estados: [
+    'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS',
+    'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC',
+    'SP', 'SE', 'TO'
+  ]
+};
+</script>
+  
+  

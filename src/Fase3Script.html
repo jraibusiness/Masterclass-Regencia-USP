@@ -1,0 +1,1016 @@
+<script>
+/* ============================================================
+   FASE 3 · PREPARO DA OBRA — lógica de tela
+   Carrega ANTES de Script e publica window.F3. O Script só chama
+   quatro pontos: telas(), iniciar(), aoEntrar() e aoVerificar().
+   Assim as fases 1 e 2 permanecem como estão.
+   ============================================================ */
+
+window.F3 = (function () {
+  'use strict';
+
+  var ctx = null;             // { E, dados, ir, indiceDaTela, escapar, $, $$, mostrarErro }
+  var limpo = null;           // cópia de E no arranque, para o retorno ao início
+
+  var S = {
+    bilhete: '',
+    situacao: null,
+    liberada: false,
+    obras: [],
+    obraId: '',
+    quiz: null,
+    i: 0,
+    respostas: {},
+    resultado: null,
+    ciencias: { partituras: false, sonataTheory: false },
+    reenvioEm: 0,
+    contagem: null,
+    verificando: false
+  };
+
+  /* ---------- atalhos ---------- */
+  function $(id) { return document.getElementById(id); }
+  function $$(sel, raiz) {
+    return Array.prototype.slice.call((raiz || document).querySelectorAll(sel));
+  }
+  function esc(s) {
+    return String(s === null || s === undefined ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+  function cfg() { return (ctx && ctx.dados && ctx.dados.config) || {}; }
+  function preencher(molde, valores) {
+    return String(molde || '').replace(/\{(\w+)\}/g, function (todo, chave) {
+      return valores[chave] === undefined ? todo : valores[chave];
+    });
+  }
+  function erro(idErro, msg) {
+    var el = $(idErro);
+    if (el) el.textContent = msg || '';
+  }
+
+  /* ============================================================
+     TELAS
+     ============================================================ */
+
+  function soFase3() {
+    return !!(S.situacao && S.situacao.encontrado && S.situacao.fase2Concluida);
+  }
+  function ativa() { return S.liberada; }
+
+  /**
+   * Recebe a lista de telas das fases 1 e 2 e devolve a lista completa.
+   *
+   * Quem já concluiu a Fase 2 não repete a Fase 2: as telas dela ganham uma
+   * condição a mais, em vez de serem removidas. Remover quebraria o índice de
+   * quem ainda precisa passar por elas.
+   */
+  function telas(base) {
+    var out = [];
+    base.forEach(function (t) {
+      out.push(t);
+      if (t.id === 'portao') out.push({ id: 'codigo', bloco: -1 });
+      if (t.id === 'reencontro') out.push({ id: 'ficha', bloco: -1, mostrarSe: soFase3 });
+    });
+
+    ['reencontro', 'encontros', 'preparo08', 'repertorio', 'compromisso', 'revisao', 'fim']
+      .forEach(function (id) {
+        for (var i = 0; i < out.length; i++) {
+          if (out[i].id !== id) continue;
+          var antes = out[i].mostrarSe;
+          out[i].mostrarSe = function () { return !soFase3() && (!antes || antes()); };
+          return;
+        }
+      });
+
+    ['metodo', 'quiz', 'placar', 'partituras', 'analise'].forEach(function (id) {
+      out.push({ id: id, bloco: 4, mostrarSe: ativa });
+    });
+    out.push({ id: 'selo', bloco: -1, mostrarSe: ativa });
+
+    return out;
+  }
+
+  /* ============================================================
+     PORTÃO E CÓDIGO
+     ============================================================ */
+
+  function montarCodigo() {
+    var casas = $('codigoCasas');
+    var html = '';
+    for (var i = 0; i < 6; i++) {
+      html += '<input class="codigo__casa" type="text" inputmode="numeric" ' +
+        'autocomplete="one-time-code" maxlength="1" data-casa="' + i + '" ' +
+        'aria-label="Dígito ' + (i + 1) + '">';
+    }
+    casas.innerHTML = html;
+
+    var campos = $$('.codigo__casa', casas);
+
+    campos.forEach(function (campo, i) {
+      campo.addEventListener('input', function () {
+        // Colar o código inteiro numa casa só distribui pelas seis.
+        var v = campo.value.replace(/\D/g, '');
+        if (v.length > 1) {
+          for (var k = 0; k < v.length && i + k < campos.length; k++) {
+            campos[i + k].value = v.charAt(k);
+            campos[i + k].setAttribute('data-cheia', '1');
+          }
+          var ultimo = Math.min(i + v.length, campos.length - 1);
+          campos[ultimo].focus();
+          if (codigoDigitado().length === 6) verificar();
+          return;
+        }
+        campo.value = v;
+        campo.setAttribute('data-cheia', v ? '1' : '0');
+        if (v && i < campos.length - 1) campos[i + 1].focus();
+        if (codigoDigitado().length === 6) verificar();
+      });
+
+      campo.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Backspace' && !campo.value && i > 0) {
+          ev.preventDefault();
+          campos[i - 1].value = '';
+          campos[i - 1].setAttribute('data-cheia', '0');
+          campos[i - 1].focus();
+        }
+        if (ev.key === 'Enter') { ev.preventDefault(); verificar(); }
+      });
+
+      campo.addEventListener('focus', function () { campo.select(); });
+    });
+
+    $('btnCodigo').addEventListener('click', verificar);
+    $('btnReenviar').addEventListener('click', reenviar);
+  }
+
+  function codigoDigitado() {
+    return $$('.codigo__casa').map(function (c) { return c.value.replace(/\D/g, ''); }).join('');
+  }
+
+  function limparCasas() {
+    $$('.codigo__casa').forEach(function (c) {
+      c.value = '';
+      c.setAttribute('data-cheia', '0');
+    });
+    var primeira = $$('.codigo__casa')[0];
+    if (primeira) primeira.focus();
+  }
+
+  /** Chamado pelo Script depois que solicitarCodigo deu certo. */
+  function aoPedirCodigo(email, minutos) {
+    $('codigoApoio').textContent = preencher(T.codigo.apoio, {
+      email: email, minutos: minutos || 12
+    });
+    limparCasas();
+    erro('erCodigo', '');
+    iniciarEsperaReenvio(30);
+    ctx.ir(ctx.indiceDaTela('codigo'));
+    setTimeout(function () {
+      var primeira = $$('.codigo__casa')[0];
+      if (primeira) { try { primeira.focus({ preventScroll: true }); } catch (e) { primeira.focus(); } }
+    }, 260);
+  }
+
+  function iniciarEsperaReenvio(segundos) {
+    var btn = $('btnReenviar');
+    S.reenvioEm = segundos;
+    btn.disabled = true;
+
+    (function tique() {
+      if (S.reenvioEm <= 0) {
+        btn.disabled = false;
+        btn.textContent = T.codigo.reenviar;
+        return;
+      }
+      btn.textContent = preencher(T.codigo.espere, { segundos: S.reenvioEm });
+      S.reenvioEm--;
+      setTimeout(tique, 1000);
+    })();
+  }
+
+  function reenviar() {
+    var btn = $('btnReenviar');
+    btn.disabled = true;
+    btn.textContent = T.codigo.reenviando;
+    erro('erCodigo', '');
+
+    google.script.run
+      .withSuccessHandler(function (res) {
+        if (res && res.ok) {
+          limparCasas();
+          erro('erCodigo', '');
+          $('codigoApoio').textContent = T.codigo.reenviado;
+          iniciarEsperaReenvio(45);
+        } else {
+          btn.disabled = false;
+          btn.textContent = T.codigo.reenviar;
+          erro('erCodigo', (res && res.erro) || T.codigo.falhou);
+        }
+      })
+      .withFailureHandler(function () {
+        btn.disabled = false;
+        btn.textContent = T.codigo.reenviar;
+        erro('erCodigo', T.codigo.falhou);
+      })
+      .solicitarCodigo(ctx.E.email);
+  }
+
+  function verificar() {
+    // O sexto dígito dispara sozinho e o botão também dispara: sem esta
+    // trava, o segundo pedido chegaria com o código já marcado como usado.
+    if (S.verificando) return;
+
+    var digitado = codigoDigitado();
+    if (digitado.length !== 6) { erro('erCodigo', T.codigo.incompleto); return; }
+
+    S.verificando = true;
+    var btn = $('btnCodigo');
+    btn.disabled = true;
+    btn.textContent = T.codigo.entrando;
+    erro('erCodigo', '');
+
+    google.script.run
+      .withSuccessHandler(function (res) {
+        S.verificando = false;
+        btn.disabled = false;
+        btn.textContent = T.codigo.botao;
+        if (!res || !res.ok) {
+          erro('erCodigo', (res && res.erro) || T.codigo.falhou);
+          limparCasas();
+          return;
+        }
+        S.bilhete = res.bilhete;
+        S.situacao = res;
+        S.obras = res.obrasQuiz || [];
+        if (ctx.aoVerificado) ctx.aoVerificado(res);
+      })
+      .withFailureHandler(function () {
+        S.verificando = false;
+        btn.disabled = false;
+        btn.textContent = T.codigo.botao;
+        erro('erCodigo', T.codigo.falhou);
+      })
+      .verificarCodigo(ctx.E.email, digitado);
+  }
+
+  /* ============================================================
+     FICHA
+     ============================================================ */
+
+  function montarFicha() {
+    var E = ctx.E, dados = ctx.dados;
+    $('fichaTitulo').textContent = E.nome
+      ? 'Olá, ' + E.nome + '. Está tudo registrado.'
+      : T.ficha.titulo;
+
+    var meus = dados.eventos.filter(function (ev) { return E.encontros.indexOf(ev.id) !== -1; });
+    $('fichaEncontros').innerHTML = meus.map(function (ev) {
+      return '<div class="cartao cartao--marcado" style="cursor:default;">' +
+        '<span class="marca" aria-hidden="true">' + esc(ev.letra) + '</span>' +
+        ctx.blocoQuando(ev) +
+        '<span class="cartao__titulo" style="margin-top:10px;">' + esc(ev.titulo) + '</span>' +
+        '</div>';
+    }).join('');
+
+    var escolhas = (S.situacao && S.situacao.escolhas) || [];
+    $('fichaObras').innerHTML = escolhas.length
+      ? escolhas.map(function (texto, i) {
+          var partes = String(texto).split(': ');
+          return '<div class="ficha">' +
+            '<p class="ficha__rubrica">' + (i === 0 ? 'Primeira' : 'Segunda') + ' prioridade</p>' +
+            '<p class="ficha__obra">' + esc(partes[0]) + '</p>' +
+            (partes[1] ? '<p class="ficha__trecho">' + esc(partes.slice(1).join(': ')) + '</p>' : '') +
+            '</div>';
+        }).join('')
+      : '<p class="nota" style="margin:0 0 8px;">' + esc(T.ficha.semObras) + '</p>';
+
+    var linhas = [
+      ['Nome', S.situacao && S.situacao.nome],
+      ['E-mail', ctx.E.email],
+      ['Protocolo', S.situacao && S.situacao.protocolo],
+      ['Partitura', S.situacao && S.situacao.comoLevaPartitura],
+      ['Leva instrumento', S.situacao && S.situacao.levaInstrumento]
+    ].filter(function (l) { return !!l[1]; });
+
+    $('fichaDados').innerHTML =
+      '<p class="ficha__rubrica">Seus dados</p>' +
+      linhas.map(function (l) {
+        return '<div class="ficha__linha"><span class="ficha__chave">' + esc(l[0]) +
+          '</span><span class="ficha__valor">' + esc(l[1]) + '</span></div>';
+      }).join('');
+  }
+
+  /* ============================================================
+     MÉTODO
+     ============================================================ */
+
+  function montarMetodo() {
+    $('metodoPassos').innerHTML = T.metodo.passos.map(function (p) {
+      return '<li class="passos__item">' + esc(p) + '</li>';
+    }).join('');
+
+    var conhecidas = S.obras.map(function (o) { return o.id; });
+    if (conhecidas.indexOf(S.obraId) === -1) S.obraId = '';
+
+    var escolha = $('metodoEscolha');
+    if (S.obras.length > 1) {
+      if (!S.obraId) S.obraId = S.obras[0].id;
+      escolha.innerHTML =
+        '<p class="campo__rotulo">' + esc(T.metodo.rotuloEscolha) + '</p>' +
+        '<div class="cartoes" id="metodoObras" style="margin-bottom:18px;"></div>';
+      $('metodoObras').innerHTML = S.obras.map(function (o) {
+        return '<button type="button" class="cartao" data-obra="' + esc(o.id) + '" ' +
+          'aria-pressed="' + (o.id === S.obraId ? 'true' : 'false') + '">' +
+          '<span class="cartao__titulo">' + esc(o.obra) + '</span>' +
+          '<span class="cartao__meta">' + esc(o.compositor) + '</span></button>';
+      }).join('');
+      $$('#metodoObras .cartao').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          S.obraId = btn.getAttribute('data-obra');
+          $$('#metodoObras .cartao').forEach(function (b) {
+            b.setAttribute('aria-pressed', b === btn ? 'true' : 'false');
+          });
+          atualizarAvisoMetodo();
+        });
+      });
+    } else {
+      S.obraId = S.obras.length ? S.obras[0].id : '';
+      escolha.innerHTML = S.obras.length
+        ? '<div class="ficha" style="margin-bottom:18px;">' +
+          '<p class="ficha__rubrica">' + esc(T.metodo.rotuloEscolha) + '</p>' +
+          '<p class="ficha__obra">' + esc(S.obras[0].obra) + '</p>' +
+          '<p class="ficha__trecho">' + esc(S.obras[0].compositor) + '</p></div>'
+        : '';
+    }
+    atualizarAvisoMetodo();
+  }
+
+  function atualizarAvisoMetodo() {
+    var aviso = preencher(T.metodo.aviso, { minutos: cfg().quizMinutos || '4' });
+    var feitos = (S.situacao && S.situacao.quizzesFeitos) || [];
+    for (var i = 0; i < feitos.length; i++) {
+      if (feitos[i].obraId === S.obraId) {
+        aviso += ' ' + preencher(T.metodo.refazer, { pontos: feitos[i].pontos });
+        break;
+      }
+    }
+    $('metodoAviso').textContent = aviso;
+  }
+
+  /* ============================================================
+     QUIZ
+     ============================================================ */
+
+  function veu(mostrar, texto) {
+    var el = $('veu');
+    if (texto) $('veuTexto').textContent = texto;
+    el.hidden = !mostrar;
+  }
+
+  function comecarQuiz() {
+    if (!S.obraId) return;
+    var btn = $('btnComecarQuiz');
+    btn.disabled = true;
+    veu(true, T.quiz.carregando);
+
+    google.script.run
+      .withSuccessHandler(function (res) {
+        btn.disabled = false;
+        veu(false);
+        if (!res || !res.ok) {
+          $('metodoAviso').textContent = (res && res.erro) || T.quiz.falhou;
+          return;
+        }
+        S.quiz = res;
+        S.i = 0;
+        S.respostas = {};
+        S.resultado = null;
+        renderPergunta();
+        ctx.ir(ctx.indiceDaTela('quiz'));
+      })
+      .withFailureHandler(function () {
+        btn.disabled = false;
+        veu(false);
+        $('metodoAviso').textContent = T.quiz.falhou;
+      })
+      .carregarQuiz(S.bilhete, S.obraId);
+  }
+
+  function perguntaAtual() { return S.quiz.perguntas[S.i]; }
+
+  function renderPergunta() {
+    var p = perguntaAtual();
+    var total = S.quiz.perguntas.length;
+
+    $('quizContador').textContent = (S.i + 1) + ' de ' + total;
+    $('quizEixo').textContent = p.eixo;
+    $('quizTrilho').style.width = Math.round(((S.i + 1) / total) * 100) + '%';
+    $('quizPergunta').textContent = p.enunciado;
+    $('quizDica').textContent = p.dica || '';
+    $('quizDica').hidden = !p.dica;
+    erro('erQuiz', '');
+
+    $('btnQuizVoltar').disabled = false;
+    $('btnQuizAvancar').textContent = (S.i === total - 1) ? T.quiz.confirmar : T.quiz.avancar;
+
+    var corpo = $('quizCorpo');
+    corpo.innerHTML = '';
+
+    if (p.tipo === 'escolha' || p.tipo === 'multipla') renderOpcoes(corpo, p);
+    else if (p.tipo === 'digitar') renderDigitar(corpo, p);
+    else if (p.tipo === 'ano') renderAno(corpo, p);
+    else if (p.tipo === 'ligar') renderLigar(corpo, p);
+    else if (p.tipo === 'ordenar') renderOrdenar(corpo, p);
+
+    window.scrollTo(0, 0);
+  }
+
+  function guardar(valor) { S.respostas[String(perguntaAtual().n)] = valor; }
+  function guardado() { return S.respostas[String(perguntaAtual().n)]; }
+
+  /* ---------- escolha e múltipla ---------- */
+
+  function renderOpcoes(corpo, p) {
+    var multipla = p.tipo === 'multipla';
+    var atual = guardado();
+    var marcadas = multipla ? [].concat(atual || []) : (atual ? [atual] : []);
+
+    corpo.innerHTML = '<div class="opcoes" data-multipla="' + (multipla ? '1' : '0') + '">' +
+      p.opcoes.map(function (o) {
+        return '<button type="button" class="opcao" data-valor="' + esc(o) + '" aria-pressed="' +
+          (marcadas.indexOf(o) !== -1 ? 'true' : 'false') + '">' +
+          '<span class="opcao__marca" aria-hidden="true"></span>' + esc(o) + '</button>';
+      }).join('') + '</div>';
+
+    $$('.opcao', corpo).forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var v = btn.getAttribute('data-valor');
+        erro('erQuiz', '');
+
+        if (!multipla) {
+          $$('.opcao', corpo).forEach(function (b) {
+            b.setAttribute('aria-pressed', b === btn ? 'true' : 'false');
+          });
+          guardar(v);
+          // Escolha única avança sozinha: um toque, uma pergunta. A pausa é
+          // para a marca aparecer; se a pessoa já saiu da pergunta nesse
+          // intervalo, o avanço não acontece.
+          var travada = S.i;
+          setTimeout(function () {
+            if (S.i === travada && guardado() === v) avancarQuiz();
+          }, 280);
+          return;
+        }
+
+        var lista = [].concat(guardado() || []);
+        var i = lista.indexOf(v);
+        if (i === -1) { lista.push(v); btn.setAttribute('aria-pressed', 'true'); }
+        else { lista.splice(i, 1); btn.setAttribute('aria-pressed', 'false'); }
+        guardar(lista);
+      });
+    });
+  }
+
+  /* ---------- digitar ---------- */
+
+  function renderDigitar(corpo, p) {
+    corpo.innerHTML = '<input class="digitar__campo" type="text" id="quizTexto" ' +
+      'autocomplete="off" autocapitalize="words" spellcheck="false" maxlength="60" ' +
+      'enterkeyhint="go" value="' + esc(guardado() || '') + '">';
+
+    var campo = $('quizTexto');
+    campo.addEventListener('input', function () { guardar(campo.value); erro('erQuiz', ''); });
+    campo.addEventListener('keydown', function (ev) {
+      if (ev.key === 'Enter') { ev.preventDefault(); avancarQuiz(); }
+    });
+    setTimeout(function () {
+      try { campo.focus({ preventScroll: true }); } catch (e) { campo.focus(); }
+    }, 220);
+  }
+
+  /* ---------- barra de ano ---------- */
+
+  function renderAno(corpo, p) {
+    var salvo = guardado();
+    var valor = salvo ? Number(salvo) : p.inicial;
+
+    corpo.innerHTML = '<div class="barra">' +
+      '<div class="barra__valor" id="anoValor" data-mexeu="' + (salvo ? '1' : '0') + '">' +
+      valor + '</div>' +
+      '<div class="barra__legenda" id="anoLegenda">' +
+      esc(salvo ? T.quiz.barraLegenda : T.quiz.barraIntocada) + '</div>' +
+      '<input class="barra__campo" type="range" id="anoCampo" min="' + p.min + '" max="' + p.max +
+      '" step="1" value="' + valor + '" aria-label="Ano">' +
+      '<div class="barra__extremos"><span>' + p.min + '</span><span>' + p.max + '</span></div>' +
+      '<div class="barra__passos">' +
+      '<button type="button" class="barra__passo" data-passo="-10">−10</button>' +
+      '<button type="button" class="barra__passo" data-passo="-1">−1</button>' +
+      '<button type="button" class="barra__passo" data-passo="1">+1</button>' +
+      '<button type="button" class="barra__passo" data-passo="10">+10</button>' +
+      '</div></div>';
+
+    var campo = $('anoCampo');
+
+    function aplicar(v) {
+      v = Math.min(p.max, Math.max(p.min, v));
+      campo.value = v;
+      $('anoValor').textContent = v;
+      $('anoValor').setAttribute('data-mexeu', '1');
+      $('anoLegenda').textContent = T.quiz.barraLegenda;
+      guardar(v);
+      erro('erQuiz', '');
+    }
+
+    campo.addEventListener('input', function () { aplicar(Number(campo.value)); });
+    $$('.barra__passo', corpo).forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        aplicar(Number(campo.value) + Number(btn.getAttribute('data-passo')));
+      });
+    });
+  }
+
+  /* ---------- ligar colunas ---------- */
+
+  var ligarAtiva = null;
+
+  function renderLigar(corpo, p) {
+    ligarAtiva = null;
+    var pares = [].concat(guardado() || []);
+
+    corpo.innerHTML = '<div class="ligar">' +
+      '<div class="ligar__coluna" id="ligarEsq"></div>' +
+      '<div class="ligar__coluna" id="ligarDir"></div>' +
+      '</div><p class="ligar__ajuda">' + esc(T.quiz.ligarAjuda) + '</p>';
+
+    function parDe(esquerda) {
+      for (var i = 0; i < pares.length; i++) if (pares[i][0] === esquerda) return pares[i][1];
+      return null;
+    }
+    function usada(direita) {
+      for (var i = 0; i < pares.length; i++) if (pares[i][1] === direita) return true;
+      return false;
+    }
+
+    function pintar() {
+      $('ligarEsq').innerHTML = p.esquerda.map(function (x) {
+        var par = parDe(x);
+        var estado = ligarAtiva === x ? 'ativa' : (par ? 'ligada' : '');
+        return '<button type="button" class="ligar__peca" data-lado="e" data-valor="' + esc(x) + '"' +
+          (estado ? ' data-estado="' + estado + '"' : '') +
+          (par ? ' data-par="→ ' + esc(par) + '"' : '') + '>' + esc(x) + '</button>';
+      }).join('');
+
+      $('ligarDir').innerHTML = p.direita.map(function (y) {
+        var ocupada = usada(y);
+        return '<button type="button" class="ligar__peca" data-lado="d" data-valor="' + esc(y) + '"' +
+          (ocupada ? ' data-estado="ligada"' : '') + '>' + esc(y) + '</button>';
+      }).join('');
+
+      $$('.ligar__peca', corpo).forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var v = btn.getAttribute('data-valor');
+          erro('erQuiz', '');
+
+          if (btn.getAttribute('data-lado') === 'e') {
+            // Tocar de novo num item já ligado desfaz a ligação.
+            if (parDe(v)) {
+              pares = pares.filter(function (par) { return par[0] !== v; });
+              ligarAtiva = null;
+            } else {
+              ligarAtiva = (ligarAtiva === v) ? null : v;
+            }
+          } else {
+            if (!ligarAtiva) return;
+            pares = pares.filter(function (par) { return par[0] !== ligarAtiva && par[1] !== v; });
+            pares.push([ligarAtiva, v]);
+            ligarAtiva = null;
+          }
+          guardar(pares);
+          pintar();
+        });
+      });
+    }
+
+    pintar();
+  }
+
+  /* ---------- ordenar ---------- */
+
+  function renderOrdenar(corpo, p) {
+    var fila = [].concat(guardado() || []);
+
+    corpo.innerHTML = '<div class="ordenar">' +
+      '<p class="campo__rotulo">' + esc(T.quiz.ordenarFila) + '</p>' +
+      '<div class="ordenar__fila" id="ordFila"></div>' +
+      '<p class="campo__rotulo">' + esc(T.quiz.ordenarBanco) + '</p>' +
+      '<div class="ordenar__banco" id="ordBanco"></div>' +
+      '</div>';
+
+    function pintar() {
+      var elFila = $('ordFila');
+      elFila.setAttribute('data-cheia', fila.length === p.itens.length ? '1' : '0');
+      elFila.innerHTML = fila.length
+        ? fila.map(function (x, i) {
+            return '<button type="button" class="ordenar__item" data-fila="' + i +
+              '" data-pos="' + (i + 1) + '">' + esc(x) + '</button>';
+          }).join('')
+        : '<p class="ordenar__vazio">' + esc(T.quiz.ordenarVazio) + '</p>';
+
+      var restantes = p.itens.filter(function (x) { return fila.indexOf(x) === -1; });
+      $('ordBanco').innerHTML = restantes.map(function (x) {
+        return '<button type="button" class="ordenar__item" data-valor="' + esc(x) + '">' +
+          esc(x) + '</button>';
+      }).join('');
+
+      $$('#ordBanco .ordenar__item', corpo).forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          fila.push(btn.getAttribute('data-valor'));
+          guardar(fila.slice());
+          erro('erQuiz', '');
+          pintar();
+        });
+      });
+      $$('#ordFila .ordenar__item', corpo).forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          fila.splice(Number(btn.getAttribute('data-fila')), 1);
+          guardar(fila.slice());
+          pintar();
+        });
+      });
+    }
+
+    pintar();
+  }
+
+  /* ---------- navegação do quiz ---------- */
+
+  function respondida() {
+    var p = perguntaAtual();
+    var v = guardado();
+    if (v === null || v === undefined || v === '') return false;
+    if (p.tipo === 'multipla') return [].concat(v).length > 0;
+    if (p.tipo === 'ligar') return [].concat(v).length === p.esquerda.length;
+    if (p.tipo === 'ordenar') return [].concat(v).length === p.itens.length;
+    if (p.tipo === 'digitar') return String(v).trim().length > 0;
+    return true;
+  }
+
+  function avisoDeFalta() {
+    var t = perguntaAtual().tipo;
+    if (t === 'digitar') return T.quiz.vazioTexto;
+    if (t === 'ligar') return T.quiz.vazioLigar;
+    if (t === 'ordenar') return T.quiz.vazioOrdenar;
+    return T.quiz.vazio;
+  }
+
+  function avancarQuiz(pulando) {
+    if (!pulando && !respondida()) { erro('erQuiz', avisoDeFalta()); return; }
+    if (pulando) guardar(null);
+
+    if (S.i === S.quiz.perguntas.length - 1) { confirmarQuiz(); return; }
+    S.i++;
+    renderPergunta();
+  }
+
+  function voltarQuiz() {
+    if (S.i === 0) { ctx.ir(ctx.indiceDaTela('metodo')); return; }
+    S.i--;
+    renderPergunta();
+  }
+
+  function confirmarQuiz() {
+    veu(true, T.quiz.corrigindo);
+    $('btnQuizAvancar').disabled = true;
+
+    google.script.run
+      .withSuccessHandler(function (res) {
+        $('btnQuizAvancar').disabled = false;
+        veu(false);
+        if (!res || !res.ok) {
+          erro('erQuiz', (res && res.erro) || T.quiz.falhou);
+          return;
+        }
+        S.resultado = res;
+        montarPlacar(res);
+        ctx.ir(ctx.indiceDaTela('placar'));
+      })
+      .withFailureHandler(function () {
+        $('btnQuizAvancar').disabled = false;
+        veu(false);
+        erro('erQuiz', T.quiz.falhou);
+      })
+      .corrigirQuiz(S.bilhete, S.obraId, S.respostas);
+  }
+
+  /* ============================================================
+     PLACAR
+     ============================================================ */
+
+  function montarPlacar(r) {
+    $('placarObra').textContent = r.compositor + ' — ' + r.obra;
+    $('placarMaximo').textContent = ' / ' + r.maximo;
+    $('placarFaixa').textContent = r.faixa.rotulo;
+    $('placarTexto').textContent = r.faixa.texto;
+    $('placarContagem').textContent = preencher(T.placar.contagem, {
+      acertos: r.acertos, total: r.total
+    });
+    $('placarEmail').textContent = r.emailFalhou ? T.placar.emailFalhou : T.placar.email;
+
+    $('placarGabarito').innerHTML = r.itens.map(function (it) {
+      var chave = it.acertou ? 'certo' : (it.parcial ? 'quase' : 'errado');
+      return '<li class="gabarito__item">' +
+        '<div class="gabarito__cabeca">' +
+        '<span class="gabarito__eixo">' + it.n + ' · ' + esc(it.eixo) + '</span>' +
+        '<span class="gabarito__selo" data-r="' + chave + '">' + esc(T.placar.selos[chave]) + '</span>' +
+        '<span class="gabarito__pontos">' + it.pontos + '/' + it.maximo + '</span>' +
+        '</div>' +
+        '<p class="gabarito__enunciado">' + esc(it.enunciado) + '</p>' +
+        '<p class="gabarito__sua">' + esc(T.placar.sua + it.sua) + '</p>' +
+        '<p class="gabarito__resposta">' + esc(it.gabarito) + '</p>' +
+        '<p class="gabarito__porque">' + esc(it.porque) + '</p>' +
+        (it.sugestao ? '<p class="gabarito__sugestao">' + esc(it.sugestao) + '</p>' : '') +
+        (it.fonte && it.fonte.url
+          ? '<p class="gabarito__fonte">' + esc(T.placar.fonte) + '<a href="' + esc(it.fonte.url) +
+            '" target="_blank" rel="noopener">' + esc(it.fonte.rotulo) + '</a></p>'
+          : '') +
+        '</li>';
+    }).join('');
+
+    $('placarGabarito').hidden = true;
+    $('btnGabarito').textContent = T.placar.verGabarito;
+
+    animarPlacar(r);
+  }
+
+  /** O número sobe e a barra enche: o resultado chega, não aparece. */
+  function animarPlacar(r) {
+    var alvo = $('placarNumero');
+    var maximoEl = $('placarMaximo');
+    var reduzido = window.matchMedia &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    function pintarNumero(v) {
+      alvo.textContent = v;
+      alvo.appendChild(maximoEl);
+    }
+
+    if (reduzido) {
+      pintarNumero(r.pontos);
+      $('placarCheio').style.width = Math.round((r.pontos / r.maximo) * 100) + '%';
+      return;
+    }
+
+    pintarNumero(0);
+    $('placarCheio').style.width = '0%';
+
+    setTimeout(function () {
+      $('placarCheio').style.width = Math.round((r.pontos / r.maximo) * 100) + '%';
+    }, 120);
+
+    var passos = 34, i = 0;
+    var timer = setInterval(function () {
+      i++;
+      // Desaceleração cúbica: o número chega devagar no fim, como uma fermata.
+      var t = 1 - Math.pow(1 - i / passos, 3);
+      pintarNumero(Math.round(r.pontos * t));
+      if (i >= passos) { clearInterval(timer); pintarNumero(r.pontos); }
+    }, 30);
+  }
+
+  /* ============================================================
+     PARTITURAS, ANÁLISE E GESTUAL
+     ============================================================ */
+
+  function montarPartituras() {
+    var url = cfg().pastaPartiturasUrl || '';
+    $('partiturasApoio').textContent = T.partituras.apoio;
+    $('partiturasLink').innerHTML = url
+      ? esc(T.partituras.abrir) + ': <a class="linkinho" href="' + esc(url) +
+        '" target="_blank" rel="noopener">LINK</a>'
+      : '<span class="nota" style="margin:0;">Peça o endereço da pasta para a equipe.</span>';
+  }
+
+  function montarAnalise() {
+    var c = cfg();
+    $('analiseApoio').textContent = preencher(T.analise.apoio, {
+      obra: c.obraAnalise || 'Sinfonia nº 3, op. 36, de Louise Farrenc'
+    });
+    $('analiseLivro').textContent = c.livroAnaliseTitulo || 'Elements of Sonata Theory';
+    $('analiseAutores').textContent =
+      (c.livroAnaliseAutores || 'James Hepokoski e Warren Darcy') +
+      ' · ' + (c.livroAnaliseEditora || 'Oxford University Press, 2006');
+  }
+
+  function ligarCiencia(idBotao, chave) {
+    var btn = $(idBotao);
+    if (!btn) return;
+    btn.addEventListener('click', function () {
+      S.ciencias[chave] = !S.ciencias[chave];
+      btn.setAttribute('aria-pressed', S.ciencias[chave] ? 'true' : 'false');
+      erro('erPartituras', ''); erro('erAnalise', '');
+    });
+  }
+
+  /** Barra o avanço enquanto a caixa da tela não estiver marcada. */
+  function exigirCiencia(telaId) {
+    if (telaId === 'partituras' && !S.ciencias.partituras) {
+      erro('erPartituras', T.partituras.falta); return false;
+    }
+    if (telaId === 'analise' && !S.ciencias.sonataTheory) {
+      erro('erAnalise', T.analise.falta); return false;
+    }
+    return true;
+  }
+
+  function fecharFase3() {
+    if (!exigirCiencia('analise')) return;
+
+    var btn = $('btnFecharFase3');
+    btn.disabled = true;
+    veu(true, T.quiz.gravando);
+
+    google.script.run
+      .withSuccessHandler(function (res) {
+        btn.disabled = false;
+        veu(false);
+        if (!res || !res.ok) { erro('erAnalise', (res && res.erro) || T.quiz.falhou); return; }
+        montarSelo();
+        ctx.ir(ctx.indiceDaTela('selo'));
+      })
+      .withFailureHandler(function () {
+        btn.disabled = false;
+        veu(false);
+        erro('erAnalise', T.quiz.falhou);
+      })
+      .registrarCiencias(S.bilhete, {
+        obraId: S.obraId,
+        partituras: S.ciencias.partituras,
+        sonataTheory: S.ciencias.sonataTheory
+      });
+  }
+
+  /* ============================================================
+     SELO E RETORNO
+     ============================================================ */
+
+  function montarSelo() {
+    var nome = (S.situacao && S.situacao.nome) || ctx.E.nome || '';
+    $('seloTitulo').textContent = preencher(T.selo.titulo, { nome: nome || 'Pronto' });
+
+    var r = S.resultado;
+    $('seloResumo').innerHTML =
+      '<p class="ficha__rubrica">' + esc(T.selo.rubricaResumo) + '</p>' +
+      (r
+        ? '<div class="ficha__linha"><span class="ficha__chave">' + esc(T.selo.rotuloObra) +
+          '</span><span class="ficha__valor">' + esc(r.obra) + '</span></div>' +
+          '<div class="ficha__linha"><span class="ficha__chave">' + esc(T.selo.rotuloPontos) +
+          '</span><span class="ficha__valor">' + r.pontos + ' / ' + r.maximo + '</span></div>'
+        : '') +
+      '<div class="ficha__linha"><span class="ficha__chave">' + esc(T.selo.rotuloCiencias) +
+      '</span><span class="ficha__valor">' + esc(T.selo.ciencias) + '</span></div>';
+
+    contarParaVoltar(parseInt(cfg().segundosRetorno || '25', 10));
+  }
+
+  function contarParaVoltar(segundos) {
+    if (S.contagem) clearInterval(S.contagem);
+    var resta = segundos > 0 ? segundos : 25;
+
+    function pintar() {
+      $('seloContagemTexto').textContent = preencher(T.selo.voltando, { segundos: resta });
+    }
+    pintar();
+
+    S.contagem = setInterval(function () {
+      resta--;
+      if (resta <= 0) {
+        clearInterval(S.contagem);
+        S.contagem = null;
+        $('seloContagemTexto').textContent = T.selo.podeFechar;
+        voltarAoInicio();
+        return;
+      }
+      pintar();
+    }, 1000);
+  }
+
+  /**
+   * Volta ao portão sem recarregar a página: o iframe do Apps Script torna
+   * um reload caro e às vezes impossível. Restauramos o estado inicial,
+   * capturado no arranque, e a plataforma fica pronta para a próxima pessoa.
+   */
+  function voltarAoInicio() {
+    var E = ctx.E;
+    Object.keys(E).forEach(function (k) { delete E[k]; });
+    Object.keys(limpo).forEach(function (k) {
+      E[k] = (limpo[k] && typeof limpo[k] === 'object')
+        ? JSON.parse(JSON.stringify(limpo[k]))
+        : limpo[k];
+    });
+
+    S.bilhete = ''; S.situacao = null; S.liberada = false;
+    S.obras = []; S.obraId = ''; S.quiz = null; S.i = 0;
+    S.respostas = {}; S.resultado = null;
+    S.ciencias = { partituras: false, sonataTheory: false };
+
+    ['cienciaPartituras', 'cienciaSonata'].forEach(function (id) {
+      var b = $(id);
+      if (b) b.setAttribute('aria-pressed', 'false');
+    });
+
+    var portao = $('inPortaoEmail');
+    if (portao) portao.value = '';
+    erro('erPortao', ''); erro('erCodigo', '');
+
+    ctx.ir(0, true);
+  }
+
+  /* ============================================================
+     ENTRADA EM TELA
+     ============================================================ */
+
+  function aoEntrar(telaId) {
+    if (telaId === 'ficha') montarFicha();
+    else if (telaId === 'metodo') montarMetodo();
+    else if (telaId === 'partituras') montarPartituras();
+    else if (telaId === 'analise') montarAnalise();
+    if (telaId !== 'selo' && S.contagem) { clearInterval(S.contagem); S.contagem = null; }
+  }
+
+  /** Chamado pelo Script quando o cadastro ou a Fase 2 termina de gravar. */
+  function abrirPreparo() {
+    S.liberada = true;
+    // Quem acabou de escolher os trechos nesta sessão tem a escolha mais
+    // fresca em E; a lista vinda do servidor é de antes da gravação.
+    var locais = obrasDoRepertorio();
+    S.obras = locais.length ? locais : ((S.situacao && S.situacao.obrasQuiz) || []);
+    S.obraId = '';
+    ctx.ir(ctx.indiceDaTela('metodo'));
+  }
+
+  /** Recorte local do repertório, para quem acabou de se cadastrar agora. */
+  function obrasDoRepertorio() {
+    var E = ctx.E;
+    var escolhidas = {};
+    (E.prioridades || []).forEach(function (p) { if (p && p.obraId) escolhidas[p.obraId] = true; });
+
+    var todas = (ctx.dados.repertorio || []).map(function (o) {
+      return { id: o.id, obra: o.obra, compositor: o.compositor, escolhida: !!escolhidas[o.id] };
+    });
+    var marcadas = todas.filter(function (o) { return o.escolhida; });
+    return marcadas.length ? marcadas : todas;
+  }
+
+  /* ============================================================
+     ARRANQUE
+     ============================================================ */
+
+  function iniciar(contexto) {
+    ctx = contexto;
+    limpo = JSON.parse(JSON.stringify(ctx.E));
+
+    montarCodigo();
+
+    $('btnComecarQuiz').addEventListener('click', comecarQuiz);
+    $('btnQuizAvancar').addEventListener('click', function () { avancarQuiz(false); });
+    $('btnQuizVoltar').addEventListener('click', voltarQuiz);
+    $('btnQuizPular').addEventListener('click', function () { avancarQuiz(true); });
+
+    $('btnGabarito').addEventListener('click', function () {
+      var lista = $('placarGabarito');
+      lista.hidden = !lista.hidden;
+      $('btnGabarito').textContent = lista.hidden
+        ? T.placar.verGabarito : T.placar.esconderGabarito;
+    });
+
+    ligarCiencia('cienciaPartituras', 'partituras');
+    ligarCiencia('cienciaSonata', 'sonataTheory');
+
+    $('btnFecharFase3').addEventListener('click', fecharFase3);
+  }
+
+  /** Depois de verificado o código, decide para onde a pessoa vai. */
+  function aoVerificar(res) {
+    S.liberada = soFase3();
+    return {
+      soFase3: soFase3(),
+      encontrado: !!res.encontrado,
+      destino: soFase3() ? 'ficha' : (res.encontrado ? 'reencontro' : 'abertura')
+    };
+  }
+
+  return {
+    telas: telas,
+    iniciar: iniciar,
+    aoEntrar: aoEntrar,
+    aoPedirCodigo: aoPedirCodigo,
+    aoVerificar: aoVerificar,
+    abrirPreparo: abrirPreparo,
+    exigirCiencia: exigirCiencia,
+    soFase3: soFase3,
+    liberada: ativa,
+    estado: S
+  };
+})();
+</script>

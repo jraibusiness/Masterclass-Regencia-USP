@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
+  <title>Masterclasses de Regência Orquestral · João Rocha</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <?!= include('Estilo') ?>
+  <?!= include('Fase3Estilo') ?>
+</head>
+<body>
+  
+  <div id="app" aria-live="polite">
+    <?!= include('Formulario') ?>
+  </div>
+  
+  <div id="modal" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="modalTitulo">
+    <div class="modal__caixa">
+      <h2 class="modal__titulo" id="modalTitulo"></h2>
+      <p class="modal__texto" id="modalTexto"></p>
+      <div class="modal__acoes">
+        <button type="button" class="btn btn--fantasma" id="modalCancelar">Voltar</button>
+        <button type="button" class="btn btn--primario" id="modalConfirmar">Confirmar</button>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    var APP_URL = "<?= appUrl ?>";
+    var VERSAO = "<?= versao ?>";
+    var VIEW_MODE = "<?= viewMode ?>";
+  </script>
+  
+  <?!= include('Textos') ?>
+  <?!= include('Fase3Textos') ?>
+  <?!= include('Fase3Script') ?>
+  <?!= include('Script') ?>
+  
+</body>
+</html>
+  
+  

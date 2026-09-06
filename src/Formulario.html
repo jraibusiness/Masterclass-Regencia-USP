@@ -1,0 +1,423 @@
+<header class="topo" id="topo" hidden>
+  <ul class="topo__blocos" id="topoBlocos"></ul>
+  <button type="button" class="topo__voltar" id="btnVoltar" hidden>&larr; <span id="btnVoltarTexto">Voltar</span></button>
+</header>
+  
+<main class="palco" id="palco">
+  
+  <!-- Carregando -->
+  <section class="tela" data-tela="carregando" data-ativa="1">
+    <div class="carregando">
+      <span class="carregando__ponto"></span><span class="carregando__ponto"></span><span class="carregando__ponto"></span>
+      <div style="margin-top:18px;">Carregando</div>
+    </div>
+  </section>
+  
+  <!-- Portão -->
+  <section class="tela" data-tela="portao">
+    <div style="padding-top:28px;">
+      <p class="olho" data-t="portao.olho"></p>
+      <h1 class="titulo" data-t="portao.titulo"></h1>
+      <p class="apoio" data-t="portao.apoio"></p>
+      <div class="campo">
+        <label class="campo__rotulo" for="inPortaoEmail" data-t="portao.rotulo"></label>
+        <input class="campo__entrada" type="email" id="inPortaoEmail" autocomplete="email"
+               inputmode="email" enterkeyhint="go" maxlength="120">
+      </div>
+      <span class="erro" id="erPortao"></span>
+      <div class="acoes">
+        <button type="button" class="btn btn--primario" id="btnPortao" data-t-texto="portao.botao"></button>
+      </div>
+    </div>
+  </section>
+  
+  <!-- Reencontro -->
+  <section class="tela" data-tela="reencontro">
+    <div style="padding-top:24px;">
+      <p class="olho" data-t="reencontro.olho"></p>
+      <h1 class="titulo" id="reencontroTitulo"></h1>
+      <p class="apoio" data-t="reencontro.apoio"></p>
+      <div id="reencontroEventos" class="cartoes" style="margin-bottom:20px;"></div>
+      <p class="nota" id="reencontroNota"></p>
+      <div class="acoes">
+        <button type="button" class="btn btn--primario" data-avancar data-t-texto="reencontro.botao"></button>
+      </div>
+    </div>
+  </section>
+  
+  <!-- Abertura -->
+  <section class="tela" data-tela="abertura">
+    <div style="padding-top:24px;">
+      <p class="olho" id="aberturaOlho"></p>
+      <h1 class="titulo" id="aberturaTitulo"></h1>
+      <p class="apoio" id="aberturaSubtitulo" style="margin-bottom:18px;color:var(--prata);"></p>
+      <p class="apoio" id="aberturaApoio"></p>
+  
+      <p class="campo__rotulo" id="aberturaAgendaRotulo"></p>
+      <ul class="agenda-anuncio" id="aberturaEventos"></ul>
+      <p class="nota" id="aberturaEscolhaDepois" style="margin:0 0 22px;"></p>
+  
+      <div style="border-left:3px solid var(--ouro);padding:14px 0 14px 16px;background:var(--onyx-2);">
+        <p class="apoio" style="margin:0 0 8px;color:var(--alabastro);" id="aberturaDestaque"></p>
+        <p class="nota" style="margin:0;max-width:none;" id="aberturaJustificativa"></p>
+      </div>
+  
+      <div class="acoes">
+        <button type="button" class="btn btn--primario" id="btnComecar"></button>
+      </div>
+    </div>
+  </section>
+  
+  <!-- Nome -->
+  <section class="tela" data-tela="nome">
+    <p class="olho" data-t="nome.olho"></p>
+    <h2 class="titulo" data-t="nome.titulo"></h2>
+    <div class="campo">
+      <label class="campo__rotulo" for="inNome" data-t="nome.rotuloNome"></label>
+      <input class="campo__entrada" type="text" id="inNome" autocomplete="given-name" enterkeyhint="next" maxlength="60">
+    </div>
+    <div class="campo">
+      <label class="campo__rotulo" for="inSobrenome" data-t="nome.rotuloSobrenome"></label>
+      <input class="campo__entrada" type="text" id="inSobrenome" autocomplete="family-name" enterkeyhint="next" maxlength="80">
+    </div>
+    <span class="erro" id="erNome"></span>
+    <div class="acoes"><button type="button" class="btn btn--primario" data-avancar>Continuar</button></div>
+  </section>
+  
+  <!-- WhatsApp -->
+  <section class="tela" data-tela="whatsapp">
+    <p class="olho" data-t="whatsapp.olho"></p>
+    <h2 class="titulo" data-t="whatsapp.titulo"></h2>
+    <p class="apoio" data-t="whatsapp.apoio"></p>
+    <div class="campo">
+      <label class="campo__rotulo" for="inWhatsapp" data-t="whatsapp.rotulo"></label>
+      <input class="campo__entrada" type="tel" id="inWhatsapp" autocomplete="tel" inputmode="tel" enterkeyhint="next" maxlength="24">
+    </div>
+    <span class="erro" id="erWhatsapp"></span>
+    <div class="acoes"><button type="button" class="btn btn--primario" data-avancar>Continuar</button></div>
+  </section>
+  
+  <!-- E-mail -->
+  <section class="tela" data-tela="email">
+    <p class="olho" data-t="email.olho"></p>
+    <h2 class="titulo" data-t="email.titulo"></h2>
+    <p class="apoio" data-t="email.apoio"></p>
+    <div class="campo">
+      <label class="campo__rotulo" for="inEmail" data-t="email.rotulo"></label>
+      <input class="campo__entrada" type="email" id="inEmail" autocomplete="email" inputmode="email" enterkeyhint="next" maxlength="120">
+    </div>
+    <div class="campo">
+      <label class="campo__rotulo" for="inEmailConfirma" data-t="email.rotuloConfirma"></label>
+      <input class="campo__entrada" type="email" id="inEmailConfirma" autocomplete="off" inputmode="email" enterkeyhint="next" maxlength="120">
+    </div>
+    <div id="blocoEmailAdicional" hidden>
+      <div class="campo">
+        <label class="campo__rotulo" for="inEmailAdicional">
+          <span data-t="email.rotuloAdicional"></span><span class="opcional">opcional</span>
+        </label>
+        <input class="campo__entrada" type="email" id="inEmailAdicional" autocomplete="off" inputmode="email" maxlength="120">
+      </div>
+    </div>
+    <button type="button" class="btn btn--fantasma" id="btnEmailAdicional" style="margin-top:2px;"></button>
+    <span class="erro" id="erEmail"></span>
+    <div class="acoes"><button type="button" class="btn btn--primario" data-avancar>Continuar</button></div>
+  </section>
+  
+  <!-- Conhece -->
+  <section class="tela" data-tela="conhece">
+    <p class="olho" data-t="conhece.olho"></p>
+    <h2 class="titulo" data-t="conhece.titulo"></h2>
+    <div class="cartoes" id="grupoConhece"></div>
+  </section>
+  
+  <!-- Bio -->
+  <section class="tela" data-tela="bio">
+    <p class="olho" data-t="bio.olho"></p>
+    <h2 class="titulo" data-t="bio.titulo"></h2>
+    <p class="apoio" data-t="bio.apoio"></p>
+    <div id="bioConteudo"></div>
+    <div class="acoes"><button type="button" class="btn btn--primario" data-avancar data-t-texto="bio.botaoSeguir"></button></div>
+  </section>
+  
+  <!-- Nascimento -->
+  <section class="tela" data-tela="nascimento">
+    <p class="olho" data-t="nascimento.olho"></p>
+    <h2 class="titulo" data-t="nascimento.titulo"></h2>
+    <p class="apoio" data-t="nascimento.apoio"></p>
+    <div class="trio">
+      <div>
+        <label class="campo__rotulo" for="inDia" data-t="nascimento.dia"></label>
+        <select class="campo__select" id="inDia"></select>
+      </div>
+      <div>
+        <label class="campo__rotulo" for="inMes" data-t="nascimento.mes"></label>
+        <select class="campo__select" id="inMes"></select>
+      </div>
+      <div>
+        <label class="campo__rotulo" for="inAno" data-t="nascimento.ano"></label>
+        <select class="campo__select" id="inAno"></select>
+      </div>
+    </div>
+    <span class="erro" id="erNascimento"></span>
+    <div class="acoes"><button type="button" class="btn btn--primario" data-avancar>Continuar</button></div>
+  </section>
+  
+  <!-- Local -->
+  <section class="tela" data-tela="local">
+    <p class="olho" data-t="local.olho"></p>
+    <h2 class="titulo" data-t="local.titulo"></h2>
+    <div class="chips" id="grupoPais"></div>
+  
+    <div id="blocoBrasil">
+      <div class="campo">
+        <label class="campo__rotulo" for="inCep">
+          <span data-t="local.rotuloCep"></span><span class="opcional">opcional</span>
+        </label>
+        <input class="campo__entrada" type="text" id="inCep" inputmode="numeric" maxlength="9" placeholder="00000-000">
+      </div>
+      <div class="campo">
+        <label class="campo__rotulo" for="inCidade" data-t="local.rotuloCidade"></label>
+        <input class="campo__entrada" type="text" id="inCidade" autocomplete="address-level2" maxlength="80">
+      </div>
+      <div class="campo">
+        <label class="campo__rotulo" for="inEstado" data-t="local.rotuloEstado"></label>
+        <select class="campo__select" id="inEstado"></select>
+      </div>
+    </div>
+  
+    <div id="blocoExterior" hidden>
+      <div class="campo">
+        <label class="campo__rotulo" for="inPais" data-t="local.rotuloPais"></label>
+        <input class="campo__entrada" type="text" id="inPais" autocomplete="country-name" maxlength="60">
+      </div>
+      <div class="campo">
+        <label class="campo__rotulo" for="inCidadeEx" data-t="local.rotuloCidade"></label>
+        <input class="campo__entrada" type="text" id="inCidadeEx" autocomplete="address-level2" maxlength="80">
+      </div>
+    </div>
+  
+    <span class="erro" id="erLocal"></span>
+    <div class="acoes"><button type="button" class="btn btn--primario" data-avancar>Continuar</button></div>
+  </section>
+  
+  <!-- Instrumento -->
+  <section class="tela" data-tela="instrumento">
+    <p class="olho" data-t="instrumento.olho"></p>
+    <h2 class="titulo" data-t="instrumento.titulo"></h2>
+    <div class="chips" id="grupoInstrumento"></div>
+    <div class="campo" id="blocoInstrumentoOutro" hidden style="margin-top:14px;">
+      <label class="campo__rotulo" for="inInstrumentoOutro" data-t="instrumento.rotuloOutro"></label>
+      <input class="campo__entrada" type="text" id="inInstrumentoOutro" maxlength="50">
+    </div>
+  
+    <p class="campo__rotulo" style="margin-top:26px;">
+      <span data-t="instrumento.rotuloOutros"></span><span class="opcional">opcional</span>
+    </p>
+    <div class="chips" id="grupoOutrosInstrumentos"></div>
+  
+    <span class="erro" id="erInstrumento"></span>
+    <div class="acoes"><button type="button" class="btn btn--primario" data-avancar>Continuar</button></div>
+  </section>
+  
+  <!-- Estudos -->
+  <section class="tela" data-tela="estudos">
+    <p class="olho" data-t="estudos.olho"></p>
+    <h2 class="titulo" data-t="estudos.titulo"></h2>
+    <p class="apoio" data-t="estudos.apoio"></p>
+  
+    <div class="campo">
+      <label class="campo__rotulo" for="inProfessor">
+        <span data-t="estudos.rotuloProfessor"></span><span class="opcional">opcional</span>
+      </label>
+      <div class="linha-add">
+        <input class="campo__entrada" type="text" id="inProfessor" maxlength="80" autocomplete="off">
+        <button type="button" class="chip chip--add" id="btnAddProfessor" aria-label="Acrescentar professor">+</button>
+      </div>
+    </div>
+    <div class="chips" id="listaProfessores"></div>
+  
+    <p class="campo__rotulo" style="margin-top:30px;">
+      <span data-t="estudos.rotuloInstituicoes"></span><span class="opcional">opcional</span>
+    </p>
+    <p class="nota" style="margin:0 0 12px;" data-t="estudos.apoioInstituicoes"></p>
+    <div class="chips" id="grupoInstituicoes"></div>
+  
+    <div class="campo" style="margin-top:16px;">
+      <label class="campo__rotulo" for="inInstituicaoOutra" data-t="estudos.rotuloInstituicaoOutra"></label>
+      <div class="linha-add">
+        <input class="campo__entrada" type="text" id="inInstituicaoOutra" maxlength="80" autocomplete="off">
+        <button type="button" class="chip chip--add" id="btnAddInstituicao" aria-label="Acrescentar instituição">+</button>
+      </div>
+    </div>
+    <div class="chips" id="listaInstituicoesLivres"></div>
+  
+    <div class="acoes"><button type="button" class="btn btn--primario" data-avancar>Continuar</button></div>
+  </section>
+  
+  <!-- Experiência -->
+  <section class="tela" data-tela="experiencia">
+    <p class="olho" data-t="experiencia.olho"></p>
+    <h2 class="titulo" data-t="experiencia.titulo"></h2>
+    <div class="cartoes" id="grupoExperiencia"></div>
+  
+    <p class="campo__rotulo" style="margin-top:28px;" data-t="experiencia.rotuloRege"></p>
+    <div class="chips" id="grupoRegeGrupo"></div>
+  
+    <div class="campo" id="blocoQualGrupo" hidden style="margin-top:14px;">
+      <label class="campo__rotulo" for="inQualGrupo" data-t="experiencia.rotuloQual"></label>
+      <input class="campo__entrada" type="text" id="inQualGrupo" maxlength="120">
+    </div>
+  
+    <span class="erro" id="erExperiencia"></span>
+    <div class="acoes"><button type="button" class="btn btn--primario" data-avancar>Continuar</button></div>
+  </section>
+  
+  <!-- Encontros -->
+  <section class="tela" data-tela="encontros">
+    <p class="olho" data-t="encontros.olho"></p>
+    <h2 class="titulo" data-t="encontros.titulo"></h2>
+    <p class="apoio" data-t="encontros.apoio"></p>
+    <div class="cartoes" id="grupoEncontros"></div>
+    <div id="grupoCiencia"></div>
+    <p class="nota" data-t="encontros.nota"></p>
+    <span class="erro" id="erEncontros"></span>
+    <div class="acoes"><button type="button" class="btn btn--primario" data-avancar>Continuar</button></div>
+  </section>
+  
+  <!-- Preparo do dia 08 -->
+  <section class="tela" data-tela="preparo08">
+    <p class="olho" data-t="preparo08.olho"></p>
+    <div class="banner" id="banner08"></div>
+    <h2 class="titulo" data-t="preparo08.titulo"></h2>
+    <p class="apoio" data-t="preparo08.apoio"></p>
+    <ul class="bio__lista" id="preparo08Itens" style="margin-bottom:20px;"></ul>
+    <div class="aviso-preparo" data-t="preparo08.preparo"></div>
+    <div id="grupoCiencia08" style="margin-top:22px;"></div>
+    <span class="erro" id="erPreparo08"></span>
+    <div class="acoes">
+      <button type="button" class="btn btn--primario" data-avancar data-t-texto="preparo08.botao"></button>
+    </div>
+  </section>
+  
+  <!-- Repertório -->
+  <section class="tela" data-tela="repertorio">
+    <p class="olho" data-t="repertorio.olho"></p>
+    <div class="banner" id="banner08b"></div>
+    <h2 class="titulo" data-t="repertorio.titulo"></h2>
+    <p class="apoio" data-t="repertorio.apoio"></p>
+    <div id="grupoPrioridades"></div>
+    <span class="erro" id="erRepertorio"></span>
+    <div class="acoes"><button type="button" class="btn btn--primario" data-avancar>Continuar</button></div>
+  </section>
+  
+  <!-- Compromisso do dia 09 -->
+  <section class="tela" data-tela="compromisso">
+    <p class="olho" data-t="compromisso.olho"></p>
+    <div class="banner" id="banner09"></div>
+    <h2 class="titulo" data-t="compromisso.titulo"></h2>
+    <div class="contraste" data-t="compromisso.contraste"></div>
+    <p class="apoio" data-t="compromisso.apoio"></p>
+    <ul class="bio__lista" id="compromissoItens" style="margin-bottom:22px;"></ul>
+  
+    <div id="grupoCienciaFarrenc"></div>
+  
+    <p class="campo__rotulo" style="margin-top:26px;" data-t="compromisso.partituraRotulo"></p>
+    <div class="chips" id="grupoPartitura"></div>
+  
+    <p class="campo__rotulo" style="margin-top:26px;" data-t="compromisso.instrumentoRotulo"></p>
+    <p class="nota" style="margin:0 0 12px;" data-t="compromisso.instrumentoApoio"></p>
+    <div class="chips" id="grupoInstrumentoLeva"></div>
+  
+    <span class="erro" id="erCompromisso"></span>
+    <div class="acoes"><button type="button" class="btn btn--primario" data-avancar>Continuar</button></div>
+  </section>
+  
+  <!-- Transmissão -->
+  <section class="tela" data-tela="transmissao">
+    <p class="olho" data-t="transmissao.olho"></p>
+    <h2 class="titulo" data-t="transmissao.titulo"></h2>
+    <p class="apoio" data-t="transmissao.apoio"></p>
+    <div class="cartoes" id="grupoTransmissao"></div>
+    <span class="erro" id="erTransmissao"></span>
+  </section>
+  
+  <!-- Futuro -->
+  <section class="tela" data-tela="futuro">
+    <p class="olho" data-t="futuro.olho"></p>
+    <h2 class="titulo" data-t="futuro.titulo"></h2>
+    <p class="apoio" data-t="futuro.apoio"></p>
+    <div class="campo">
+      <label class="campo__rotulo" for="inFuturo" style="display:none;">Visão de futuro</label>
+      <textarea class="campo__area" id="inFuturo" maxlength="1200"></textarea>
+    </div>
+    <div class="acoes">
+      <button type="button" class="btn btn--primario" data-avancar>Continuar</button>
+      <button type="button" class="btn btn--fantasma" data-avancar data-t-texto="futuro.botaoPular"></button>
+    </div>
+  </section>
+  
+  <!-- Autorizações -->
+  <section class="tela" data-tela="autorizacoes">
+    <p class="olho" data-t="autorizacoes.olho"></p>
+    <h2 class="titulo" data-t="autorizacoes.titulo"></h2>
+    <p class="apoio" data-t="autorizacoes.apoio"></p>
+    <div class="cartoes" id="grupoAutorizacoes"></div>
+    <div class="acoes"><button type="button" class="btn btn--primario" data-avancar>Continuar</button></div>
+  </section>
+  
+  <!-- Convite -->
+  <section class="tela" data-tela="convite">
+    <p class="olho" data-t="convite.olho"></p>
+    <h2 class="titulo" data-t="convite.titulo"></h2>
+    <p class="apoio" data-t="convite.apoio"></p>
+    <p class="apoio" style="color:var(--alabastro);" data-t="convite.ensaio"></p>
+    <div id="conviteEnsaio" class="agenda"></div>
+    <p class="campo__rotulo" style="margin-top:24px;" data-t="convite.seguir"></p>
+    <div class="social" id="conviteRedes"></div>
+    <div class="acoes"><button type="button" class="btn btn--primario" data-avancar data-t-texto="convite.botaoSeguir"></button></div>
+  </section>
+  
+  <!-- Revisão -->
+  <section class="tela" data-tela="revisao">
+    <p class="olho" data-t="revisao.olho"></p>
+    <h2 class="titulo" data-t="revisao.titulo"></h2>
+    <p class="apoio" data-t="revisao.apoio"></p>
+    <ul class="revisao" id="listaRevisao"></ul>
+    <span class="erro" id="erEnvio"></span>
+    <div class="acoes">
+      <button type="button" class="btn btn--primario" id="btnEnviar" data-t-texto="revisao.botao"></button>
+    </div>
+  </section>
+  
+  <!-- Fim -->
+  <section class="tela" data-tela="fim">
+    <div style="padding-top:20px;">
+      <div class="selo-ok" aria-hidden="true">&#10003;</div>
+      <p class="olho" data-t="fim.olho"></p>
+      <h2 class="titulo" data-t="fim.titulo"></h2>
+      <p class="apoio" data-t="fim.apoio"></p>
+      <div class="protocolo" id="fimProtocolo"></div>
+      <p class="erro" id="fimAviso" hidden style="text-align:left;"></p>
+    </div>
+    <p class="campo__rotulo" data-t="fim.agenda"></p>
+    <div class="agenda" id="fimAgenda"></div>
+    <p class="campo__rotulo" data-t="fim.redes"></p>
+    <div class="social" id="fimRedes"></div>
+    <div class="acoes" style="margin-top:26px;">
+      <button type="button" class="btn btn--primario" id="fimPreparo" hidden></button>
+    </div>
+  </section>
+  
+  <?!= include('Fase3Formulario') ?>
+  
+</main>
+  
+<footer class="rodape" id="rodape" hidden>
+  <p class="rodape__texto" id="rodapeTexto"></p>
+  <p class="rodape__texto" id="rodapeContato" style="margin-top:10px;"></p>
+  <p class="rodape__creditos" id="rodapeCreditos"></p>
+  <p class="rodape__credito" id="rodapeCredito"></p>
+  <p class="rodape__versao" id="rodapeVersao"></p>
+</footer>
+  
+  

@@ -1,0 +1,62 @@
+name: Publicar no Apps Script
+
+# Só o ramo principal publica, e só depois da verificação passar.
+# Nada aqui cria uma nova implantação do app: `clasp push` atualiza o
+# código do projeto. Publicar uma nova versão para o público continua
+# sendo um ato deliberado — veja docs/PUBLICAR.md.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - '.clasp.json'
+      - '.github/workflows/publicar.yml'
+  workflow_dispatch:
+    inputs:
+      implantar:
+        description: 'Criar também uma nova implantação (deployment)?'
+        type: boolean
+        default: false
+
+concurrency:
+  group: publicar-apps-script
+  cancel-in-progress: false
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # A mesma verificação do outro fluxo, de novo: o que barra o deploy
+      # tem de rodar no mesmo job que faz o deploy, não num job vizinho.
+      - name: Verificar antes de tocar no projeto
+        run: node ferramentas/verificar.js
+
+      - name: Instalar o clasp
+        run: npm install -g @google/clasp@2.4.2
+
+      - name: Autenticar
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          if [ -z "$CLASPRC_JSON" ]; then
+            echo "::error::Falta o segredo CLASPRC_JSON. Veja docs/PUBLICAR.md."
+            exit 1
+          fi
+          printf '%s' "$CLASPRC_JSON" > "$HOME/.clasprc.json"
+
+      - name: Enviar o código
+        run: clasp push --force
+
+      - name: Nova implantação
+        if: ${{ inputs.implantar }}
+        run: clasp deploy --description "GitHub Actions · ${{ github.sha }}"
+
+      - name: Apagar a credencial do runner
+        if: always()
+        run: rm -f "$HOME/.clasprc.json"

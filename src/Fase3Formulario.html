@@ -1,0 +1,181 @@
+<!-- ============================================================
+     FASE 3 · telas. Só a casca: o conteúdo é montado pelo Fase3Script.
+     ============================================================ -->
+
+<!-- Código de seis dígitos -->
+<section class="tela" data-tela="codigo">
+  <div style="padding-top:24px;">
+    <p class="olho" data-t="codigo.olho"></p>
+    <h1 class="titulo" data-t="codigo.titulo"></h1>
+    <p class="apoio" id="codigoApoio"></p>
+
+    <div class="codigo" id="codigoCasas" role="group" aria-label="Código de seis dígitos"></div>
+    <span class="erro" id="erCodigo"></span>
+
+    <div class="acoes">
+      <button type="button" class="btn btn--primario" id="btnCodigo" data-t-texto="codigo.botao"></button>
+    </div>
+    <button type="button" class="reenviar" id="btnReenviar" data-t-texto="codigo.reenviar"></button>
+    <p class="nota" data-t="codigo.nota"></p>
+  </div>
+</section>
+
+<!-- Ficha: o que já está registrado -->
+<section class="tela" data-tela="ficha">
+  <div style="padding-top:24px;">
+    <p class="olho" data-t="ficha.olho"></p>
+    <h1 class="titulo" id="fichaTitulo"></h1>
+    <p class="apoio" data-t="ficha.apoio"></p>
+
+    <p class="campo__rotulo" data-t="ficha.rotuloEncontros"></p>
+    <div class="cartoes" id="fichaEncontros" style="margin-bottom:20px;"></div>
+
+    <p class="campo__rotulo" data-t="ficha.rotuloObras"></p>
+    <div id="fichaObras" style="margin-bottom:8px;"></div>
+
+    <div class="ficha" id="fichaDados"></div>
+
+    <p class="nota" data-t="ficha.nota"></p>
+    <div class="acoes">
+      <button type="button" class="btn btn--primario" data-avancar data-t-texto="ficha.botao"></button>
+    </div>
+  </div>
+</section>
+
+<!-- Método: por que dez perguntas antes da música -->
+<section class="tela" data-tela="metodo">
+  <p class="olho" data-t="metodo.olho"></p>
+  <h2 class="titulo" data-t="metodo.titulo"></h2>
+  <p class="apoio" data-t="metodo.apoio"></p>
+
+  <ul class="passos" id="metodoPassos"></ul>
+
+  <div style="border-left:3px solid var(--ouro);padding:14px 0 14px 16px;background:var(--onyx-2);margin:0 0 18px;">
+    <p class="apoio" style="margin:0;color:var(--prata);" data-t="metodo.narrativa"></p>
+  </div>
+
+  <div id="metodoEscolha"></div>
+
+  <p class="nota" id="metodoAviso"></p>
+  <div class="acoes">
+    <button type="button" class="btn btn--primario" id="btnComecarQuiz" data-t-texto="metodo.botao"></button>
+  </div>
+</section>
+
+<!-- Quiz -->
+<section class="tela" data-tela="quiz">
+  <div class="quiz__topo">
+    <span class="quiz__contador" id="quizContador"></span>
+    <span class="quiz__eixo" id="quizEixo"></span>
+  </div>
+  <div class="trilho"><div class="trilho__cheio" id="quizTrilho"></div></div>
+
+  <h2 class="quiz__pergunta" id="quizPergunta"></h2>
+  <p class="quiz__dica" id="quizDica"></p>
+
+  <div id="quizCorpo"></div>
+
+  <span class="erro" id="erQuiz"></span>
+  <div class="quiz__acoes">
+    <button type="button" class="btn btn--contorno" id="btnQuizVoltar" data-t-texto="quiz.voltar"></button>
+    <button type="button" class="btn btn--primario" id="btnQuizAvancar" data-t-texto="quiz.avancar"></button>
+  </div>
+  <button type="button" class="quiz__pular" id="btnQuizPular" data-t-texto="quiz.pular"></button>
+</section>
+
+<!-- Placar -->
+<section class="tela" data-tela="placar">
+  <div class="placar">
+    <p class="olho" data-t="placar.olho"></p>
+    <h2 class="titulo" id="placarObra" style="margin-bottom:22px;"></h2>
+
+    <div class="placar__numero" id="placarNumero">0<span id="placarMaximo"></span></div>
+    <div class="placar__trilho"><div class="placar__cheio" id="placarCheio"></div></div>
+    <p class="placar__faixa" id="placarFaixa"></p>
+    <p class="placar__texto" id="placarTexto"></p>
+    <p class="placar__contagem" id="placarContagem"></p>
+  </div>
+
+  <p class="nota" id="placarEmail" style="margin-bottom:18px;"></p>
+
+  <button type="button" class="dobra" id="btnGabarito" data-t-texto="placar.verGabarito"></button>
+  <ul class="gabarito" id="placarGabarito" hidden></ul>
+
+  <div class="acoes">
+    <button type="button" class="btn btn--primario" data-avancar data-t-texto="placar.botao"></button>
+  </div>
+</section>
+
+<!-- Partituras -->
+<section class="tela" data-tela="partituras">
+  <p class="olho" data-t="partituras.olho"></p>
+  <h2 class="titulo" data-t="partituras.titulo"></h2>
+  <p class="apoio" id="partiturasApoio"></p>
+
+  <div class="ficha" style="margin-bottom:18px;">
+    <p class="ficha__rubrica" data-t="partituras.rubricaPasta"></p>
+    <p class="apoio" style="margin:0;" id="partiturasLink"></p>
+  </div>
+
+  <p class="apoio" data-t="partituras.curadoria"></p>
+  <p class="nota" data-t="partituras.livre"></p>
+
+  <button type="button" class="ciencia" id="cienciaPartituras" aria-pressed="false" style="margin-top:18px;">
+    <span class="ciencia__marca" aria-hidden="true"></span>
+    <span class="ciencia__texto" data-t="partituras.ciencia"></span>
+  </button>
+
+  <span class="erro" id="erPartituras"></span>
+  <div class="acoes">
+    <button type="button" class="btn btn--primario" data-avancar data-t-texto="partituras.botao"></button>
+  </div>
+</section>
+
+<!-- Análise: Sonata Theory -->
+<section class="tela" data-tela="analise">
+  <p class="olho" data-t="analise.olho"></p>
+  <h2 class="titulo" data-t="analise.titulo"></h2>
+  <p class="apoio" id="analiseApoio"></p>
+
+  <div class="ficha" style="margin-bottom:18px;">
+    <p class="ficha__rubrica" data-t="analise.rubricaLivro"></p>
+    <p class="ficha__obra" id="analiseLivro"></p>
+    <p class="ficha__trecho" id="analiseAutores"></p>
+  </div>
+
+  <p class="apoio" data-t="analise.conceitos"></p>
+
+  <button type="button" class="ciencia" id="cienciaSonata" aria-pressed="false">
+    <span class="ciencia__marca" aria-hidden="true"></span>
+    <span class="ciencia__texto" data-t="analise.ciencia"></span>
+  </button>
+
+  <span class="erro" id="erAnalise"></span>
+  <div class="acoes">
+    <button type="button" class="btn btn--primario" id="btnFecharFase3" data-t-texto="analise.botao"></button>
+  </div>
+</section>
+
+<!-- Selo final -->
+<section class="tela" data-tela="selo">
+  <div style="padding-top:26px;">
+    <div class="selo-ok" aria-hidden="true">&#10003;</div>
+    <p class="olho" data-t="selo.olho"></p>
+    <h2 class="titulo" id="seloTitulo"></h2>
+    <p class="apoio" data-t="selo.apoio"></p>
+
+    <div class="ficha" id="seloResumo" style="margin-top:6px;"></div>
+
+    <p class="nota" data-t="selo.nota"></p>
+    <p class="contagem" id="seloContagem"><span class="contagem__anel" aria-hidden="true"></span><span id="seloContagemTexto"></span></p>
+  </div>
+</section>
+
+<!-- Véu de cálculo -->
+<div class="veu" id="veu" hidden aria-live="polite">
+  <div class="metronomo" aria-hidden="true">
+    <span class="metronomo__haste"></span>
+    <span class="metronomo__peso"></span>
+  </div>
+  <p class="veu__texto" id="veuTexto"></p>
+</div>

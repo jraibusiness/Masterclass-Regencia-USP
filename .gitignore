@@ -1,0 +1,11 @@
+node_modules/
+.clasprc.json
+*.log
+.DS_Store
+
+# Nunca versione credencial. O clasp guarda o refresh token aqui.
+~/.clasprc.json
+credenciais*.json
+
+# Saída da pré-visualização local
+ferramentas/saida/
