@@ -58,6 +58,12 @@ window.F3 = (function () {
   }
   function ativa() { return S.liberada; }
 
+  /** Já existe preparo gravado para alguma das obras desta pessoa? */
+  function jaRespondeu() {
+    var feitos = (S.situacao && S.situacao.quizzesFeitos) || [];
+    return feitos.length > 0;
+  }
+
   /**
    * Recebe a lista de telas das fases 1 e 2 e devolve a lista completa.
    *
@@ -83,7 +89,13 @@ window.F3 = (function () {
         }
       });
 
-    ['metodo', 'quiz', 'placar', 'partituras', 'analise'].forEach(function (id) {
+    // Quem já respondeu não responde de novo: as três telas do preparo
+    // somem do caminho e a pessoa segue direto para o que falta. Pedir de
+    // novo o que já está gravado é coletar duas vezes a mesma coisa.
+    ['metodo', 'quiz', 'placar'].forEach(function (id) {
+      out.push({ id: id, bloco: 4, mostrarSe: function () { return ativa() && !jaRespondeu(); } });
+    });
+    ['partituras', 'analise'].forEach(function (id) {
       out.push({ id: id, bloco: 4, mostrarSe: ativa });
     });
     out.push({ id: 'selo', bloco: -1, mostrarSe: ativa });
@@ -285,6 +297,8 @@ window.F3 = (function () {
         }).join('')
       : '<p class="nota" style="margin:0 0 8px;">' + esc(T.ficha.semObras) + '</p>';
 
+    montarFichaPreparo();
+
     var linhas = [
       ['Nome', S.situacao && S.situacao.nome],
       ['E-mail', ctx.E.email],
@@ -299,6 +313,46 @@ window.F3 = (function () {
         return '<div class="ficha__linha"><span class="ficha__chave">' + esc(l[0]) +
           '</span><span class="ficha__valor">' + esc(l[1]) + '</span></div>';
       }).join('');
+  }
+
+  /**
+   * O que já foi respondido, obra por obra.
+   *
+   * Sem isto, quem voltasse não tinha como saber que já tinha feito — e a
+   * plataforma parecia esquecer. O dado sempre esteve na aba Fase3; faltava
+   * mostrá-lo no primeiro lugar em que a pessoa olha.
+   */
+  function montarFichaPreparo() {
+    var feitos = (S.situacao && S.situacao.quizzesFeitos) || [];
+    var alvo = $('fichaPreparo');
+
+    if (!feitos.length) {
+      alvo.innerHTML = '<p class="nota" style="margin:0;">' + esc(T.ficha.preparoNenhum) + '</p>';
+      $('fichaNota').textContent = T.ficha.nota;
+      $('btnFicha').textContent = T.ficha.botao;
+      return;
+    }
+    $('btnFicha').textContent = T.ficha.botaoRefazer;
+
+    alvo.innerHTML = feitos.map(function (q) {
+      var pct = q.maximo ? Math.round((q.pontos / q.maximo) * 100) : 0;
+      return '<div class="ficha" style="margin-bottom:10px;">' +
+        '<p class="ficha__rubrica">' +
+        esc(preencher(T.ficha.preparoFeitoEm, { data: q.quando || '—' })) + '</p>' +
+        '<p class="ficha__obra">' + esc(q.obra || q.obraId) + '</p>' +
+        '<div style="display:flex;align-items:baseline;gap:10px;margin-top:8px;">' +
+        '<span style="font:300 30px/1 inherit;color:var(--alabastro);">' + q.pontos + '</span>' +
+        '<span class="ficha__trecho" style="margin:0;">de ' + q.maximo +
+        (q.acertos ? ' · ' + esc(q.acertos) + ' inteiras' : '') + '</span></div>' +
+        '<div class="placar__trilho" style="margin:12px 0 0;">' +
+        '<div class="placar__cheio" style="width:' + pct + '%;"></div></div>' +
+        '</div>';
+    }).join('');
+
+    // O método é pulado, então é aqui que a obra do registro fica escolhida —
+    // as ciências, mais adiante, precisam saber a qual obra se referem.
+    S.obraId = feitos[0].obraId;
+    $('fichaNota').textContent = T.ficha.preparoPronto;
   }
 
   /* ============================================================
@@ -858,7 +912,10 @@ window.F3 = (function () {
     var nome = (S.situacao && S.situacao.nome) || ctx.E.nome || '';
     $('seloTitulo').textContent = preencher(T.selo.titulo, { nome: nome || 'Pronto' });
 
-    var r = S.resultado;
+    // Quem pulou o quiz por já tê-lo feito não tem resultado nesta sessão;
+    // o do registro serve igual.
+    var feitos = (S.situacao && S.situacao.quizzesFeitos) || [];
+    var r = S.resultado || (feitos.length ? feitos[0] : null);
     $('seloResumo').innerHTML =
       '<p class="ficha__rubrica">' + esc(T.selo.rubricaResumo) + '</p>' +
       (r

@@ -10,7 +10,7 @@
  * Padrões: PADROES_OPUS_AI.md (rev. 27/08/2026)
  */
   
-var VERSAO = 'MRO-4.1.0 · 07/09/2026';
+var VERSAO = 'MRO-4.2.0 · 07/09/2026';
 var TZ = 'America/Sao_Paulo';
   
 var PROP = {
@@ -35,6 +35,7 @@ var ABAS = {
   FASE2: 'Fase2',
   FASE3: 'Fase3',
   ACESSO: 'Acesso',
+  LEMBRETES: 'Lembretes',
   LOG: 'Log'
 };
   
@@ -149,6 +150,7 @@ function garantirAbasBase() {
   semearEventos(ss);
   semearRepertorio(ss);
   semearConfig(ss);
+  garantirAbaLembretes();
   
   return 'Abas garantidas em: ' + ss.getName();
 }
@@ -334,6 +336,7 @@ var CONFIG_PADRAO = [
   ['livroAnaliseEditora', 'Oxford University Press, 2006'],
   ['obraAnalise', 'Sinfonia nº 3, op. 36, de Louise Farrenc'],
   ['appUrlPublica', ''],
+  ['lembretesLigados', 'SIM'],
   ['segundosRetorno', '25']
 ];
   
@@ -742,7 +745,21 @@ function salvarInscricao(dados) {
       Utilities.formatDate(agora, TZ, 'dd/MM/yyyy HH:mm') + ' · CRIADO · inscrição pública'
     ];
   
-    aba.appendRow(linha);
+    // Duas inscrições para o mesmo e-mail não são duas pessoas. O portão já
+    // desvia quem tem cadastro, mas uma corrida entre duas abas abertas, ou
+    // um retorno pelo botão do navegador, ainda chegaria aqui.
+    var jaTinha = acharLinhaInscricao(aba, dados.email);
+    if (jaTinha) {
+      var colI = mapaColunas(aba, CABECALHO_INSCRICOES);
+      id = String(aba.getRange(jaTinha, colI.ID + 1).getValue()).trim() || id;
+      linha[colI.ID] = id;
+      linha[colI.Historico] = String(aba.getRange(jaTinha, colI.Historico + 1).getValue() || '') +
+        ' | ' + Utilities.formatDate(agora, TZ, 'dd/MM/yyyy HH:mm') + ' · ATUALIZADO';
+      aba.getRange(jaTinha, 1, 1, linha.length).setValues([linha]);
+      registrar('AVISO', 'INSCRICAO_ATUALIZADA', dados.email + ' · linha ' + jaTinha);
+    } else {
+      aba.appendRow(linha);
+    }
     SpreadsheetApp.flush();
   
     // As escolhas da fase 2 vêm no mesmo pacote: uma ida ao servidor,
@@ -779,6 +796,18 @@ function salvarInscricao(dados) {
   }
 }
   
+/** Número da linha da inscrição deste e-mail, ou 0. */
+function acharLinhaInscricao(aba, email) {
+  if (aba.getLastRow() < 2) return 0;
+  var col = mapaColunas(aba, CABECALHO_INSCRICOES);
+  var v = aba.getRange(2, 1, aba.getLastRow() - 1, aba.getLastColumn()).getValues();
+  var alvo = normalizarEmail(email);
+  for (var i = v.length - 1; i >= 0; i--) {
+    if (normalizarEmail(v[i][col.Email]) === alvo) return i + 2;
+  }
+  return 0;
+}
+
 function limpar(v) {
   if (v === null || v === undefined) return '';
   return String(v).replace(/[\u0000-\u001F\u007F]/g, '').trim().slice(0, 2000);
@@ -906,12 +935,30 @@ function buscarInscricao(email) {
 }
   
 /** Grava a linha da Fase2. Não envia e-mail — quem envia é quem chamou. */
+/** Número da linha da Fase2 desta pessoa, ou 0. */
+function acharLinhaFase2(aba, email) {
+  if (aba.getLastRow() < 2) return 0;
+  var col = mapaColunas(aba, CABECALHO_FASE2);
+  var v = aba.getRange(2, 1, aba.getLastRow() - 1, aba.getLastColumn()).getValues();
+  for (var i = v.length - 1; i >= 0; i--) {
+    if (normalizarEmail(v[i][col.Email]) === normalizarEmail(email)) return i + 2;
+  }
+  return 0;
+}
+
+/**
+ * Grava a linha da Fase2. Não envia e-mail — quem envia é quem chamou.
+ *
+ * Uma linha por pessoa: quem passa de novo pela escolha de trechos
+ * sobrescreve a própria linha. Acumular linhas transformaria a aba num
+ * histórico que ninguém pediu e obrigaria toda leitura a desempatar.
+ */
 function gravarFase2(dados, mapa, escolhidos) {
   var prioridades = (dados.prioridades || []).filter(function (p) { return p && p.obra; });
   var aba = getAba(ABAS.FASE2);
   var agora = new Date();
   
-  aba.appendRow([
+  var linhaF2 = ([
     Utilities.formatDate(agora, TZ, 'dd/MM/yyyy HH:mm:ss'),
     normalizarEmail(dados.email),
     limpar(dados.nome),
@@ -924,8 +971,14 @@ function gravarFase2(dados, mapa, escolhidos) {
     dados.levaInstrumento ? 'SIM' : 'NÃO',
     limpar(dados.protocolo)
   ]);
+
+  var ondeF2 = acharLinhaFase2(aba, dados.email);
+  if (ondeF2) aba.getRange(ondeF2, 1, 1, linhaF2.length).setValues([linhaF2]);
+  else aba.appendRow(linhaF2);
+
   SpreadsheetApp.flush();
-  registrar('INFO', 'FASE2_GRAVADO', normalizarEmail(dados.email) + ' · linhas: ' + aba.getLastRow());
+  registrar('INFO', ondeF2 ? 'FASE2_ATUALIZADO' : 'FASE2_GRAVADO',
+    normalizarEmail(dados.email) + (ondeF2 ? ' · linha ' + ondeF2 : ' · linhas: ' + aba.getLastRow()));
   return prioridades;
 }
   
@@ -1736,6 +1789,16 @@ function diagnostico() {
     out.push((PropertiesService.getScriptProperties().getProperty(PROP.HMAC_KEY)
       ? 'OK  ' : 'FALHA') + ' · chave de assinatura dos bilhetes de sessão');
   } catch (e) { out.push('FALHA · Fase 3: ' + e.message); }
+
+  try {
+    garantirAbaLembretes();
+    var pend = pendentesDoPreparo();
+    var evPrep = encontroDoPreparo();
+    out.push('OK · Lembretes: ' + pend.length + ' pessoa(s) escolheram trecho e ainda não ' +
+      'fizeram o preparo' + (evPrep ? ' · encontro ' + evPrep.dataTexto + ' está ' + evPrep.estado : ''));
+    out.push('     o gatilho de tempo se cria à mão, no painel de acionadores, ' +
+      'apontando para enviarLembretes');
+  } catch (e) { out.push('FALHA · Lembretes: ' + e.message); }
 
   var url = getAppUrl();
   out.push(url ? ('OK · URL: ' + url) : 'AVISO · publique antes para obter a URL');

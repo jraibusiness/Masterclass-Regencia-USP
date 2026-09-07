@@ -310,8 +310,11 @@ function corrigirQuiz(bilhete, obraId, respostas) {
     var faixa = faixaDe(pontos, maximo);
     var situacao = situacaoDoParticipante(email);
 
+    // Uma linha por pessoa e obra. Refazer sobrescreve em vez de acumular:
+    // duas linhas para a mesma pessoa e a mesma obra não são histórico, são
+    // ambiguidade — e quem fosse ler a planilha teria de decidir qual vale.
     var aba = getAba(ABAS.FASE3);
-    aba.appendRow([
+    var linha = [
       Utilities.formatDate(new Date(), TZ, 'dd/MM/yyyy HH:mm:ss'),
       email,
       situacao.nome || '',
@@ -323,7 +326,19 @@ function corrigirQuiz(bilhete, obraId, respostas) {
       JSON.stringify(itens.map(function (i) { return { n: i.n, p: i.pontos }; })),
       '', '',
       QUIZ_VERSAO
-    ]);
+    ];
+
+    var existente = acharLinhaFase3(aba, email, obraId);
+    if (existente) {
+      // As ciências já dadas não se perdem ao refazer o preparo.
+      var col = mapaColunas(aba, CABECALHO_FASE3);
+      var antiga = aba.getRange(existente, 1, 1, aba.getLastColumn()).getValues()[0];
+      linha[col.CienciaPartituras] = antiga[col.CienciaPartituras] || '';
+      linha[col.CienciaSonataTheory] = antiga[col.CienciaSonataTheory] || '';
+      aba.getRange(existente, 1, 1, linha.length).setValues([linha]);
+    } else {
+      aba.appendRow(linha);
+    }
     SpreadsheetApp.flush();
     registrar('INFO', 'FASE3_QUIZ', email + ' · ' + obraId + ' · ' + pontos + '/' + maximo);
 
@@ -405,6 +420,19 @@ function registrarCiencias(bilhete, dados) {
   }
 }
 
+/** Número da linha da Fase3 desta pessoa e obra, ou 0. */
+function acharLinhaFase3(aba, email, obraId) {
+  if (aba.getLastRow() < 2) return 0;
+  var col = mapaColunas(aba, CABECALHO_FASE3);
+  var v = aba.getRange(2, 1, aba.getLastRow() - 1, aba.getLastColumn()).getValues();
+  for (var i = v.length - 1; i >= 0; i--) {
+    if (normalizarEmail(v[i][col.Email]) !== normalizarEmail(email)) continue;
+    if (String(v[i][col.ObraId]).trim() !== String(obraId).trim()) continue;
+    return i + 2;
+  }
+  return 0;
+}
+
 /** Obras cujo preparo esta pessoa já respondeu — para a tela não repetir. */
 function quizzesJaFeitos(email) {
   var alvo = normalizarEmail(email);
@@ -416,12 +444,21 @@ function quizzesJaFeitos(email) {
   var out = [];
   for (var i = 0; i < v.length; i++) {
     if (normalizarEmail(v[i][col.Email]) !== alvo) continue;
+    var bloco = QUIZ_BANCO[String(v[i][col.ObraId]).trim()];
     out.push({
       obraId: String(v[i][col.ObraId]).trim(),
-      pontos: Number(v[i][col.Pontos]) || 0
+      obra: String(v[i][col.Obra] || '').trim(),
+      pontos: Number(v[i][col.Pontos]) || 0,
+      maximo: bloco ? bloco.perguntas.length * QUIZ_PONTOS_POR_PERGUNTA : 100,
+      acertos: String(v[i][col.Acertos] || '').trim(),
+      quando: String(v[i][col.Carimbo] || '').trim().split(' ')[0],
+      partituras: String(v[i][col.CienciaPartituras] || '').trim().toUpperCase() === 'SIM'
     });
   }
-  return out;
+  // Se alguém refez a mesma obra, vale o mais recente.
+  var porObra = {};
+  out.forEach(function (x) { porObra[x.obraId] = x; });
+  return Object.keys(porObra).map(function (k) { return porObra[k]; });
 }
 
 /* ============================================================
