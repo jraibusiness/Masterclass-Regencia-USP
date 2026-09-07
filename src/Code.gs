@@ -333,6 +333,7 @@ var CONFIG_PADRAO = [
   ['livroAnaliseAutores', 'James Hepokoski e Warren Darcy'],
   ['livroAnaliseEditora', 'Oxford University Press, 2006'],
   ['obraAnalise', 'Sinfonia nº 3, op. 36, de Louise Farrenc'],
+  ['appUrlPublica', ''],
   ['segundosRetorno', '25']
 ];
   
@@ -1140,6 +1141,55 @@ function blocoEvento(ev, appUrl) {
     '</td></tr></table>';
 }
   
+/**
+ * O chamado para o preparo da obra, no e-mail de confirmação.
+ *
+ * Sem isto a Fase 3 dependia de alguém clicar num botão na última tela do
+ * cadastro — e quem acabou de se inscrever sente que acabou. O e-mail é o
+ * que alcança quem já fechou a aba.
+ *
+ * O endereço vem de getAppUrl(), que devolve a URL da implantação por onde
+ * a pessoa entrou. appUrlPublica, na Config, cobre o caso de o e-mail sair
+ * fora de um pedido web, quando getAppUrl() não tem o que responder.
+ */
+function blocoPreparoEmail(cfg, appUrl) {
+  var url = cfg.appUrlPublica || appUrl || '';
+  if (!url) return '';
+
+  return '<tr><td style="padding:30px 26px 0;">' + rubrica('Antes do dia 08') +
+    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" ' +
+    'style="border-collapse:collapse;background:#0A0A0A;"><tr>' +
+    '<td style="padding:26px 22px;">' +
+
+    '<div style="font:400 10px/1.8 ' + FONTE + ';letter-spacing:.22em;' +
+    'text-transform:uppercase;color:#E0C56E;">Preparo da obra</div>' +
+
+    '<div style="font:300 19px/1.4 ' + FONTE + ';color:#EAEAEA;margin-top:12px;">' +
+    'Dez perguntas antes da música.</div>' +
+
+    '<div style="font:400 14px/1.75 ' + FONTE + ';color:#D1D1D1;margin-top:12px;">' +
+    'Metodologia da Academia Kephra: toda obra que se vai reger passa primeiro ' +
+    'por dez perguntas — nome, compositor, datas, estreia, o que acontecia no ' +
+    'mundo, o que veio antes e o que veio depois. Nenhuma obra nasce no vácuo, ' +
+    'e é desse chão que sai uma concepção sua, em vez da imitação da concepção ' +
+    'de outro.</div>' +
+
+    '<div style="font:400 14px/1.75 ' + FONTE + ';color:#9A9A9A;margin-top:12px;">' +
+    'Leva poucos minutos. Ao final você recebe o resultado comentado, com as ' +
+    'fontes, e o acesso à pasta com as partituras.</div>' +
+
+    '<div style="margin-top:20px;">' +
+    '<a href="' + escapeHtml(url) + '" style="display:inline-block;padding:14px 22px;' +
+    'background:#E0C56E;color:#0A0A0A;text-decoration:none;font:600 12px/1 ' + FONTE + ';' +
+    'letter-spacing:.14em;text-transform:uppercase;">Fazer o preparo</a></div>' +
+
+    '<div style="font:400 12px/1.7 ' + FONTE + ';color:#8A8A8A;margin-top:14px;">' +
+    'Entre com este mesmo e-mail. Mandamos um código de seis dígitos para ' +
+    'confirmar que é você.</div>' +
+
+    '</td></tr></table></td></tr>';
+}
+
 function montarHtmlEmail(r, cfg, appUrl, logoTag) {
   var contato = cfg.emailContato || PADRAO.CONTATO;
   var primeiroNome = r.nomeCompleto.split(' ')[0];
@@ -1197,6 +1247,8 @@ function montarHtmlEmail(r, cfg, appUrl, logoTag) {
     '<tr><td style="padding:34px 26px 0;">' + rubrica('Programação') + eventos + '</td></tr>' +
   
     repertorio +
+  
+    blocoPreparoEmail(cfg, appUrl) +
   
     /* ---------- Compromisso do dia 09 ---------- */
     (r.cienciaFarrenc === 'Sim'
@@ -1320,6 +1372,15 @@ function textoSimples(r, cfg) {
     linhas.push('  ' + (ev.modalidade === 'Online' ? (ev.link || 'Online') : ev.local));
   });
   linhas.push('');
+  var urlApp = cfg.appUrlPublica || getAppUrl() || '';
+  if (urlApp) {
+    linhas.push('ANTES DO DIA 08 - PREPARO DA OBRA');
+    linhas.push('Dez perguntas sobre a obra que voce vai reger, com resultado');
+    linhas.push('comentado e acesso as partituras ao final.');
+    linhas.push(urlApp);
+    linhas.push('Entre com este mesmo e-mail; mandamos um codigo de seis digitos.');
+    linhas.push('');
+  }
   linhas.push('Protocolo: ' + r.id);
   linhas.push('');
   linhas.push(cfg.assinaturaEmail || 'Equipe Academia Kephra');

@@ -71,7 +71,6 @@
     { id: 'transmissao',  bloco: 2, mostrarSe: novo, validar: vTransmissao },
     { id: 'futuro',       bloco: 3, mostrarSe: novo, validar: vFuturo },
     { id: 'autorizacoes', bloco: 3, mostrarSe: novo },
-    { id: 'convite',      bloco: 3, mostrarSe: novo },
     { id: 'revisao',      bloco: 3 },
     { id: 'fim',          bloco: -1 }
   ];
@@ -1037,25 +1036,6 @@
     }).join('');
   }
   
-  function montarConvite() {
-    var cfg = DADOS.config;
-    $('conviteEnsaio').innerHTML =
-      '<div class="agenda__evento">' +
-      '<div class="agenda__titulo">Ensaio aberto · OS-UZP</div>' +
-      '<div class="agenda__meta">' +
-      escapar((cfg.ensaioAbertoData || '') + ' · ' + (cfg.ensaioAbertoHora || '')) + '<br>' +
-      escapar(cfg.ensaioAbertoEndereco || '') + '</div>' +
-      '</div>';
-  
-    $('conviteRedes').innerHTML = [
-      { url: cfg.instagramUZP, rotulo: T.convite.botaoUZP },
-      { url: cfg.instagramJR, rotulo: T.convite.botaoJR },
-      { url: cfg.instagramAK, rotulo: T.convite.botaoAK }
-    ].filter(function (r) { return !!r.url; }).map(function (r) {
-      return '<a class="btn btn--contorno" href="' + escapar(r.url) +
-        '" target="_blank" rel="noopener">' + escapar(r.rotulo) + '</a>';
-    }).join('');
-  }
   
   /* ============================================================
      REVISÃO — índice calculado em tempo de execução
@@ -1434,7 +1414,6 @@
     montarRepertorio();
     montarTransmissao();
     montarAutorizacoes();
-    montarConvite();
     montarPreparo08();
     montarCompromisso();
     montarBanner('banner08', ehDia08);
