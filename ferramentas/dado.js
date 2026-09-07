@@ -79,11 +79,13 @@ var FIXTURES = {
 var CASO = (location.search.match(/caso=(\w+)/) || [])[1] || 'completo';
 if (CASO === 'novo') {
   FIXTURES.verificarCodigo = { ok:true, bilhete:'B', encontrado:false, nome:'', protocolo:'',
-    encontros:[], fase2Concluida:false, escolhas:[], obrasQuiz:[], quizzesFeitos:[] };
+    encontros:[], fase2Concluida:false, escolhas:[], obrasQuiz:[], quizzesFeitos:[],
+    ciencias:{ partituras:false, sonataTheory:false }, ensaio:null };
 }
 if (CASO === 'semfase2') {
   FIXTURES.verificarCodigo = Object.assign({}, FIXTURES.verificarCodigo, {
-    fase2Concluida:false, escolhas:[], obrasQuiz:[] });
+    fase2Concluida:false, escolhas:[], obrasQuiz:[], quizzesFeitos:[],
+    ciencias:{ partituras:false, sonataTheory:false }, ensaio:null });
 }
 FIXTURES.salvarInscricao = { ok:true, id:'MRO-NOVO-1', resumo:{ id:'MRO-NOVO-1' } };
 FIXTURES.salvarFase2     = { ok:true, id:'MRO-123', resumo:{ id:'MRO-123' } };

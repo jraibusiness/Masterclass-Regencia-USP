@@ -420,6 +420,23 @@ function registrarCiencias(bilhete, dados) {
   }
 }
 
+/** As ciências que esta pessoa já deu, em qualquer obra. */
+function cienciasDadas(email) {
+  var aba = getAba(ABAS.FASE3);
+  var fora = { partituras: false, sonataTheory: false };
+  if (aba.getLastRow() < 2) return fora;
+
+  var col = mapaColunas(aba, CABECALHO_FASE3);
+  var v = aba.getRange(2, 1, aba.getLastRow() - 1, aba.getLastColumn()).getValues();
+  var alvo = normalizarEmail(email);
+  for (var i = 0; i < v.length; i++) {
+    if (normalizarEmail(v[i][col.Email]) !== alvo) continue;
+    if (String(v[i][col.CienciaPartituras]).trim().toUpperCase() === 'SIM') fora.partituras = true;
+    if (String(v[i][col.CienciaSonataTheory]).trim().toUpperCase() === 'SIM') fora.sonataTheory = true;
+  }
+  return fora;
+}
+
 /** Número da linha da Fase3 desta pessoa e obra, ou 0. */
 function acharLinhaFase3(aba, email, obraId) {
   if (aba.getLastRow() < 2) return 0;

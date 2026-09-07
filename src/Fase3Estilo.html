@@ -622,6 +622,38 @@
 
 .tela[data-tela="selo"] .selo-ok { margin-left: auto; margin-right: auto; }
 
+/* ---------- Cabeçalho centralizado nas telas do preparo ----------
+
+   A regra da casa protege o texto corrido, que é onde centralizar
+   estraga: margem irregular, última linha órfã. Rubrica e título não são
+   texto corrido — são uma linha, às vezes duas. Centralizá-los dá eixo à
+   página sem custo nenhum de leitura, e o corpo segue à esquerda, que é
+   onde ele tem de ficar.                                                */
+
+.tela[data-tela="ficha"] .olho,      .tela[data-tela="ficha"] .titulo,
+.tela[data-tela="metodo"] .olho,     .tela[data-tela="metodo"] .titulo,
+.tela[data-tela="partituras"] .olho, .tela[data-tela="partituras"] .titulo,
+.tela[data-tela="analise"] .olho,    .tela[data-tela="analise"] .titulo,
+.tela[data-tela="ensaio"] .olho,     .tela[data-tela="ensaio"] .titulo,
+.tela[data-tela="ensaioDados"] .olho,.tela[data-tela="ensaioDados"] .titulo {
+  text-align: center;
+  margin-left: auto;
+  margin-right: auto;
+  max-width: 24ch;
+}
+
+/* O parágrafo NÃO acompanha. Chegou a acompanhar, e a primeira prova de
+   tela mostrou o motivo de a regra existir: seis linhas centralizadas
+   viram um bloco de margens irregulares que se lê pior. Rubrica e título
+   ao centro dão o eixo; o corpo fica onde o olho o procura. */
+
+.tela[data-tela="ficha"] > div > .olho,
+.tela[data-tela="ficha"] > div > .titulo {
+  text-align: center;
+  margin-left: auto;
+  margin-right: auto;
+}
+
 /* ---------- Gabarito ---------- */
 
 .gabarito { list-style: none; margin: 0 0 8px; padding: 0; }

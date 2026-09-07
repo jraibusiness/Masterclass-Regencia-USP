@@ -118,6 +118,15 @@ function salvarFase4(bilhete, dados) {
     var d = dados || {};
     var vai = !!d.interesse;
 
+    // Resposta sobre o ensaio não se muda pela plataforma. A lista da Osesp
+    // sai uma vez; alguém que trocasse de ideia depois dela partir estaria
+    // na lista sem saber, ou fora dela achando que está. Mudança de última
+    // hora se resolve falando com a gente, não clicando.
+    var jaRespondeu = respostaFase4(email);
+    if (jaRespondeu) {
+      return { ok: true, interesse: jaRespondeu.interesse, jaEstava: true };
+    }
+
     if (vai && !ensaioAbertoParaInscricao(cfg)) {
       return { ok: false, erro: 'O prazo para entrar na lista da Osesp encerrou.' };
     }

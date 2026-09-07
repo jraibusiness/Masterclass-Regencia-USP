@@ -10,7 +10,7 @@
  * Padrões: PADROES_OPUS_AI.md (rev. 27/08/2026)
  */
   
-var VERSAO = 'MRO-4.3.0 · 07/09/2026';
+var VERSAO = 'MRO-4.4.0 · 07/09/2026';
 var TZ = 'America/Sao_Paulo';
   
 var PROP = {

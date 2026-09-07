@@ -158,6 +158,7 @@
   function mostrarErro(idErro, mensagem, idCampo) {
     var el = $(idErro);
     if (el) el.textContent = mensagem;
+    if (mensagem && window.tato) window.tato.erro();
     if (idCampo) {
       var campo = $(idCampo);
       if (campo) {

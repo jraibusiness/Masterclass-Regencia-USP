@@ -301,6 +301,8 @@ function situacaoDoParticipante(email) {
 
   fora.obrasQuiz = obrasParaOQuiz(fora.escolhas);
   fora.quizzesFeitos = quizzesJaFeitos(alvo);
+  fora.ciencias = cienciasDadas(alvo);
+  fora.ensaio = respostaFase4(alvo);
   return fora;
 }
 

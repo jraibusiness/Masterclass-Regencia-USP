@@ -6,6 +6,64 @@
    Assim as fases 1 e 2 permanecem como estão.
    ============================================================ */
 
+/* ============================================================
+   TATO — a vibradinha de confirmação
+   ============================================================
+
+   Um toque curto no momento em que a escolha é registrada. Serve para
+   fechar o laço: a pessoa vê a marca aparecer e sente que aconteceu.
+
+   Escuta um clique só, no documento inteiro, por delegação. Assim vale
+   também para as telas das fases 1 e 2, sem tocar em nenhuma delas.
+
+   Onde funciona, e onde não:
+   · Android/Chrome — funciona.
+   · iPhone/Safari — a Vibration API não existe. Não vibra, e nada quebra.
+   · Dentro do iframe do Apps Script a política de permissões pode barrar.
+   Por isso tudo aqui é defensivo: se não der, não dá, e a plataforma
+   segue idêntica. Vibração é confirmação, nunca informação — nada que só
+   ela diga fica sem ser dito na tela.                                    */
+
+window.tato = (function () {
+  'use strict';
+
+  var mudo = false;
+  try {
+    mudo = !navigator.vibrate ||
+      (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  } catch (e) { mudo = true; }
+
+  function tocar(padrao) {
+    if (mudo) return;
+    try { navigator.vibrate(padrao); } catch (e) { mudo = true; }
+  }
+
+  var PADRAO = {
+    escolha:  8,              // marcou uma opção
+    avanca:   14,             // seguiu para a próxima tela
+    sucesso:  [12, 45, 22],   // gravou, terminou
+    erro:     [28, 45, 28]    // faltou alguma coisa
+  };
+
+  document.addEventListener('click', function (ev) {
+    var alvo = ev.target && ev.target.closest &&
+      ev.target.closest('button, .cartao, .chip, .opcao, .ciencia, ' +
+        '.ordenar__item, .ligar__peca, .barra__passo, .codigo__casa');
+    if (!alvo || alvo.disabled) return;
+
+    if (alvo.classList.contains('btn--primario')) tocar(PADRAO.avanca);
+    else tocar(PADRAO.escolha);
+  }, true);
+
+  return {
+    escolha: function () { tocar(PADRAO.escolha); },
+    avanca:  function () { tocar(PADRAO.avanca); },
+    sucesso: function () { tocar(PADRAO.sucesso); },
+    erro:    function () { tocar(PADRAO.erro); },
+    disponivel: function () { return !mudo; }
+  };
+})();
+
 window.F3 = (function () {
   'use strict';
 
@@ -48,6 +106,7 @@ window.F3 = (function () {
   function erro(idErro, msg) {
     var el = $(idErro);
     if (el) el.textContent = msg || '';
+    if (msg) window.tato.erro();
   }
 
   /* ============================================================
@@ -71,6 +130,23 @@ window.F3 = (function () {
   function jaRespondeu() {
     var feitos = (S.situacao && S.situacao.quizzesFeitos) || [];
     return feitos.length > 0;
+  }
+
+  /**
+   * Não falta mais nada a fazer?
+   *
+   * Enquanto faltar alguma coisa, a plataforma pede. Quando não falta,
+   * ela para de pedir — e para de aceitar. Uma pessoa que pudesse marcar
+   * "vou" na véspera e "não vou" depois da lista sair estaria na lista sem
+   * saber, ou fora dela achando que está.
+   */
+  function tudoPronto() {
+    if (!jaRespondeu()) return false;
+    var c = (S.situacao && S.situacao.ciencias) || {};
+    if (!c.partituras || !c.sonataTheory) return false;
+    var e = ensaio();
+    if (e && e.aberto && !(S.situacao && S.situacao.ensaio)) return false;
+    return true;
   }
 
   /**
@@ -102,17 +178,20 @@ window.F3 = (function () {
     // somem do caminho e a pessoa segue direto para o que falta. Pedir de
     // novo o que já está gravado é coletar duas vezes a mesma coisa.
     ['metodo', 'quiz', 'placar'].forEach(function (id) {
-      out.push({ id: id, bloco: 4, mostrarSe: function () { return ativa() && !jaRespondeu(); } });
+      out.push({ id: id, bloco: 4,
+        mostrarSe: function () { return ativa() && !jaRespondeu() && !tudoPronto(); } });
     });
     ['partituras', 'analise'].forEach(function (id) {
-      out.push({ id: id, bloco: 4, mostrarSe: ativa });
+      out.push({ id: id, bloco: 4,
+        mostrarSe: function () { return ativa() && !tudoPronto(); } });
     });
     // O ensaio da Osesp é um convite, não uma etapa: some quando o prazo
     // fecha, e a tela dos documentos só existe para quem disse que vai.
     out.push({ id: 'ensaio', bloco: 4,
-      mostrarSe: function () { return ativa() && ensaioVisivel(); } });
+      mostrarSe: function () { return ativa() && ensaioVisivel() && !tudoPronto(); } });
     out.push({ id: 'ensaioDados', bloco: 4,
-      mostrarSe: function () { return ativa() && ensaioVisivel() && S.ensaioVou === true; } });
+      mostrarSe: function () { return ativa() && ensaioVisivel() && !tudoPronto() &&
+        S.ensaioVou === true; } });
     out.push({ id: 'selo', bloco: -1, mostrarSe: ativa });
 
     return out;
@@ -313,6 +392,7 @@ window.F3 = (function () {
       : '<p class="nota" style="margin:0 0 8px;">' + esc(T.ficha.semObras) + '</p>';
 
     montarFichaPreparo();
+    montarFichaFechada();
 
     var linhas = [
       ['Nome', S.situacao && S.situacao.nome],
@@ -368,6 +448,36 @@ window.F3 = (function () {
     // as ciências, mais adiante, precisam saber a qual obra se referem.
     S.obraId = feitos[0].obraId;
     $('fichaNota').textContent = T.ficha.preparoPronto;
+  }
+
+  /**
+   * O aviso de que não falta nada, quando não falta.
+   *
+   * Era o que faltava: quem tinha feito tudo e voltava para conferir era
+   * levado de novo por todas as telas de confirmação, como se nada tivesse
+   * ficado registrado.
+   */
+  function montarFichaFechada() {
+    var pronto = tudoPronto();
+    $('fichaFechada').hidden = !pronto;
+    if (!pronto) return;
+
+    var e = S.situacao && S.situacao.ensaio;
+    var linhas = [[T.ficha.fRepertorio, T.ficha.fOk], [T.ficha.fPreparo, T.ficha.fOk],
+                  [T.ficha.fCiencias, T.ficha.fOk]];
+    if (e) linhas.push([T.ficha.fEnsaio, e.interesse ? T.ficha.fVou : T.ficha.fNaoVou]);
+
+    $('fichaFechada').innerHTML =
+      '<p class="ficha__rubrica">' + esc(T.ficha.fRubrica) + '</p>' +
+      '<p class="ficha__obra" style="margin-bottom:10px;">' + esc(T.ficha.fTitulo) + '</p>' +
+      linhas.map(function (l) {
+        return '<div class="ficha__linha"><span class="ficha__chave">' + esc(l[0]) +
+          '</span><span class="ficha__valor">' + esc(l[1]) + '</span></div>';
+      }).join('') +
+      '<p class="ficha__trecho" style="margin-top:14px;">' + esc(T.ficha.fNota) + '</p>';
+
+    $('fichaNota').textContent = '';
+    $('btnFicha').textContent = T.ficha.botaoFechado;
   }
 
   /* ============================================================
@@ -761,6 +871,7 @@ window.F3 = (function () {
           return;
         }
         S.resultado = res;
+        window.tato.sucesso();
         montarPlacar(res);
         ctx.ir(ctx.indiceDaTela('placar'));
       })
@@ -905,6 +1016,7 @@ window.F3 = (function () {
         veu(false);
         if (!res || !res.ok) { erro('erAnalise', (res && res.erro) || T.quiz.falhou); return; }
         if (ensaioVisivel()) { ctx.ir(ctx.indiceDaTela('ensaio')); return; }
+        window.tato.sucesso();
         montarSelo();
         ctx.ir(ctx.indiceDaTela('selo'));
       })
@@ -1015,6 +1127,7 @@ window.F3 = (function () {
           return;
         }
         S.ensaioGravado = !!dados.interesse;
+        window.tato.sucesso();
         montarSelo();
         ctx.ir(ctx.indiceDaTela('selo'));
       })
@@ -1135,7 +1248,20 @@ window.F3 = (function () {
     var locais = obrasDoRepertorio();
     S.obras = locais.length ? locais : ((S.situacao && S.situacao.obrasQuiz) || []);
     S.obraId = '';
-    ctx.ir(ctx.indiceDaTela('metodo'));
+    // `indiceDaTela` devolve -1 para tela escondida, e `ir(-1)` cairia no
+    // portão — mandar quem acabou de se inscrever de volta ao começo. Se o
+    // método não estiver no caminho, seguimos para a primeira tela da Fase 3
+    // que estiver, e só então desistimos.
+    var alvo = ctx.indiceDaTela('metodo');
+    if (alvo < 0) {
+      ['partituras', 'analise', 'ensaio', 'selo'].some(function (id) {
+        var i = ctx.indiceDaTela(id);
+        if (i >= 0) { alvo = i; return true; }
+        return false;
+      });
+    }
+    if (alvo < 0) return;
+    ctx.ir(alvo);
   }
 
   /** Recorte local do repertório, para quem acabou de se cadastrar agora. */
