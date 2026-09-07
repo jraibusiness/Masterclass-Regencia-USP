@@ -23,6 +23,7 @@ window.F3 = (function () {
     respostas: {},
     resultado: null,
     ciencias: { partituras: false, sonataTheory: false },
+    ensaioVou: null,
     reenvioEm: 0,
     contagem: null,
     verificando: false
@@ -57,6 +58,14 @@ window.F3 = (function () {
     return !!(S.situacao && S.situacao.encontrado && S.situacao.fase2Concluida);
   }
   function ativa() { return S.liberada; }
+
+  function ensaio() { return (ctx && ctx.dados && ctx.dados.ensaio) || null; }
+
+  /** O convite ao ensaio só aparece enquanto der para entrar na lista. */
+  function ensaioVisivel() {
+    var e = ensaio();
+    return !!(e && e.aberto);
+  }
 
   /** Já existe preparo gravado para alguma das obras desta pessoa? */
   function jaRespondeu() {
@@ -98,6 +107,12 @@ window.F3 = (function () {
     ['partituras', 'analise'].forEach(function (id) {
       out.push({ id: id, bloco: 4, mostrarSe: ativa });
     });
+    // O ensaio da Osesp é um convite, não uma etapa: some quando o prazo
+    // fecha, e a tela dos documentos só existe para quem disse que vai.
+    out.push({ id: 'ensaio', bloco: 4,
+      mostrarSe: function () { return ativa() && ensaioVisivel(); } });
+    out.push({ id: 'ensaioDados', bloco: 4,
+      mostrarSe: function () { return ativa() && ensaioVisivel() && S.ensaioVou === true; } });
     out.push({ id: 'selo', bloco: -1, mostrarSe: ativa });
 
     return out;
@@ -889,6 +904,7 @@ window.F3 = (function () {
         btn.disabled = false;
         veu(false);
         if (!res || !res.ok) { erro('erAnalise', (res && res.erro) || T.quiz.falhou); return; }
+        if (ensaioVisivel()) { ctx.ir(ctx.indiceDaTela('ensaio')); return; }
         montarSelo();
         ctx.ir(ctx.indiceDaTela('selo'));
       })
@@ -902,6 +918,113 @@ window.F3 = (function () {
         partituras: S.ciencias.partituras,
         sonataTheory: S.ciencias.sonataTheory
       });
+  }
+
+  /* ============================================================
+     ENSAIO ABERTO DA OSESP
+     ============================================================ */
+
+  function montarEnsaio() {
+    var c = cfg(), e = ensaio() || {};
+
+    $('ensaioApoio').textContent = preencher(T.ensaio.apoio, {
+      regente: c.osespRegente || 'Marin Alsop',
+      solista: c.osespSolista || 'Randall Goosby · violino'
+    });
+    $('ensaioQuando').textContent = (c.osespData || '') + ' · ' + (c.osespHora || '') +
+      (c.osespDuracao ? ' · ' + c.osespDuracao : '');
+    $('ensaioOnde').textContent = (c.osespLocal || '') +
+      (c.osespEndereco ? ' · ' + c.osespEndereco : '');
+    $('ensaioMapa').innerHTML = c.osespMapa
+      ? '<a class="linkinho" href="' + esc(c.osespMapa) + '" target="_blank" rel="noopener">' +
+        esc(T.ensaio.comoChegar) + '</a>' : '';
+
+    $('ensaioPrograma').innerHTML = (e.programa || []).map(function (p) {
+      return '<div style="padding:8px 0;border-bottom:1px solid var(--onyx-3);">' +
+        '<div class="ficha__rubrica" style="margin:0 0 3px;">' + esc(p.compositor) + '</div>' +
+        '<div style="font-size:14.5px;line-height:1.45;color:var(--prata);">' + esc(p.obra) + '</div>' +
+        (p.nota ? '<div class="ficha__trecho" style="margin-top:2px;">' + esc(p.nota) + '</div>' : '') +
+        '</div>';
+    }).join('');
+
+    $('ensaioTempo').innerHTML = esc(c.osespTempo || '') +
+      (c.osespTempoUrl ? ' · <a class="linkinho" href="' + esc(c.osespTempoUrl) +
+        '" target="_blank" rel="noopener">' + esc(T.ensaio.verTempo) + '</a>' : '');
+
+    $('ensaioPrazo').textContent = preencher(T.ensaio.prazo, { prazo: e.prazoTexto || '' });
+
+    var opcoes = [
+      { v: true,  r: T.ensaio.vou },
+      { v: false, r: T.ensaio.naoVou }
+    ];
+    $('ensaioEscolha').innerHTML = opcoes.map(function (o) {
+      return '<button type="button" class="cartao" data-vou="' + (o.v ? '1' : '0') + '" ' +
+        'aria-pressed="' + (S.ensaioVou === o.v ? 'true' : 'false') + '">' +
+        '<span class="cartao__titulo">' + esc(o.r) + '</span></button>';
+    }).join('');
+
+    $$('#ensaioEscolha .cartao').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        S.ensaioVou = btn.getAttribute('data-vou') === '1';
+        $$('#ensaioEscolha .cartao').forEach(function (b) {
+          b.setAttribute('aria-pressed', b === btn ? 'true' : 'false');
+        });
+        erro('erEnsaio', '');
+      });
+    });
+  }
+
+  function seguirDoEnsaio() {
+    if (S.ensaioVou === null) { erro('erEnsaio', T.ensaio.falta); return; }
+    if (S.ensaioVou) { ctx.ir(ctx.indiceDaTela('ensaioDados')); return; }
+    gravarEnsaio({ interesse: false });
+  }
+
+  function mascaraData(v) {
+    var d = String(v).replace(/\D/g, '').slice(0, 8);
+    if (d.length > 4) return d.slice(0, 2) + '/' + d.slice(2, 4) + '/' + d.slice(4);
+    if (d.length > 2) return d.slice(0, 2) + '/' + d.slice(2);
+    return d;
+  }
+
+  function enviarEnsaioDados() {
+    var nome = $('inNomeCompleto').value.trim();
+    var rg = $('inRG').value.trim();
+    var nasc = $('inNascOsesp').value.trim();
+
+    if (nome.split(/\s+/).length < 2) { erro('erEnsaioDados', T.ensaioDados.erroNome); return; }
+    if (rg.replace(/[^0-9A-Za-z]/g, '').length < 5) { erro('erEnsaioDados', T.ensaioDados.erroRG); return; }
+    if (!/^\d{2}\/\d{2}\/\d{4}$/.test(nasc)) { erro('erEnsaioDados', T.ensaioDados.erroNasc); return; }
+
+    gravarEnsaio({ interesse: true, nomeCompleto: nome, rg: rg, nascimento: nasc });
+  }
+
+  function gravarEnsaio(dados) {
+    veu(true, T.quiz.gravando);
+    $('btnEnsaio').disabled = true;
+    $('btnEnsaioDados').disabled = true;
+
+    google.script.run
+      .withSuccessHandler(function (res) {
+        veu(false);
+        $('btnEnsaio').disabled = false;
+        $('btnEnsaioDados').disabled = false;
+        if (!res || !res.ok) {
+          erro(dados.interesse ? 'erEnsaioDados' : 'erEnsaio',
+            (res && res.erro) || T.quiz.falhou);
+          return;
+        }
+        S.ensaioGravado = !!dados.interesse;
+        montarSelo();
+        ctx.ir(ctx.indiceDaTela('selo'));
+      })
+      .withFailureHandler(function () {
+        veu(false);
+        $('btnEnsaio').disabled = false;
+        $('btnEnsaioDados').disabled = false;
+        erro(dados.interesse ? 'erEnsaioDados' : 'erEnsaio', T.quiz.falhou);
+      })
+      .salvarFase4(S.bilhete, dados);
   }
 
   /* ============================================================
@@ -925,7 +1048,11 @@ window.F3 = (function () {
           '</span><span class="ficha__valor">' + r.pontos + ' / ' + r.maximo + '</span></div>'
         : '') +
       '<div class="ficha__linha"><span class="ficha__chave">' + esc(T.selo.rotuloCiencias) +
-      '</span><span class="ficha__valor">' + esc(T.selo.ciencias) + '</span></div>';
+      '</span><span class="ficha__valor">' + esc(T.selo.ciencias) + '</span></div>' +
+      (S.ensaioVou === null ? '' :
+        '<div class="ficha__linha"><span class="ficha__chave">' + esc(T.selo.rotuloEnsaio) +
+        '</span><span class="ficha__valor">' +
+        esc(S.ensaioVou ? T.selo.ensaioVou : T.selo.ensaioNao) + '</span></div>');
 
     contarParaVoltar(parseInt(cfg().segundosRetorno || '25', 10));
   }
@@ -970,6 +1097,10 @@ window.F3 = (function () {
     S.obras = []; S.obraId = ''; S.quiz = null; S.i = 0;
     S.respostas = {}; S.resultado = null;
     S.ciencias = { partituras: false, sonataTheory: false };
+    S.ensaioVou = null; S.ensaioGravado = false;
+    ['inNomeCompleto', 'inRG', 'inNascOsesp'].forEach(function (id) {
+      var c = $(id); if (c) c.value = '';
+    });
 
     ['cienciaPartituras', 'cienciaSonata'].forEach(function (id) {
       var b = $(id);
@@ -992,6 +1123,7 @@ window.F3 = (function () {
     else if (telaId === 'metodo') montarMetodo();
     else if (telaId === 'partituras') montarPartituras();
     else if (telaId === 'analise') montarAnalise();
+    else if (telaId === 'ensaio') montarEnsaio();
     if (telaId !== 'selo' && S.contagem) { clearInterval(S.contagem); S.contagem = null; }
   }
 
@@ -1045,6 +1177,11 @@ window.F3 = (function () {
     ligarCiencia('cienciaSonata', 'sonataTheory');
 
     $('btnFecharFase3').addEventListener('click', fecharFase3);
+    $('btnEnsaio').addEventListener('click', seguirDoEnsaio);
+    $('btnEnsaioDados').addEventListener('click', enviarEnsaioDados);
+    $('inNascOsesp').addEventListener('input', function () {
+      this.value = mascaraData(this.value);
+    });
   }
 
   /** Depois de verificado o código, decide para onde a pessoa vai. */

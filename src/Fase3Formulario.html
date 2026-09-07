@@ -159,6 +159,67 @@
   </div>
 </section>
 
+<!-- Ensaio aberto da Osesp -->
+<section class="tela" data-tela="ensaio">
+  <p class="olho" data-t="ensaio.olho"></p>
+  <h2 class="titulo" data-t="ensaio.titulo"></h2>
+  <p class="apoio" id="ensaioApoio"></p>
+
+  <div class="ficha" style="margin-bottom:14px;">
+    <p class="ficha__rubrica" data-t="ensaio.rubricaQuando"></p>
+    <p class="ficha__obra" id="ensaioQuando"></p>
+    <p class="ficha__trecho" id="ensaioOnde"></p>
+    <p class="ficha__trecho" style="margin-top:10px;" id="ensaioMapa"></p>
+  </div>
+
+  <div class="ficha" style="margin-bottom:14px;">
+    <p class="ficha__rubrica" data-t="ensaio.rubricaPrograma"></p>
+    <div id="ensaioPrograma"></div>
+    <p class="ficha__trecho" style="margin-top:12px;" data-t="ensaio.avisoEnsaio"></p>
+  </div>
+
+  <div class="ficha" style="margin-bottom:18px;">
+    <p class="ficha__rubrica" data-t="ensaio.rubricaTempo"></p>
+    <p class="ficha__trecho" id="ensaioTempo"></p>
+  </div>
+
+  <p class="apoio" id="ensaioPrazo"></p>
+
+  <div class="cartoes" id="ensaioEscolha" style="margin-bottom:8px;"></div>
+  <span class="erro" id="erEnsaio"></span>
+  <div class="acoes">
+    <button type="button" class="btn btn--primario" id="btnEnsaio" data-t-texto="ensaio.botao"></button>
+  </div>
+</section>
+
+<!-- Dados para a portaria -->
+<section class="tela" data-tela="ensaioDados">
+  <p class="olho" data-t="ensaioDados.olho"></p>
+  <h2 class="titulo" data-t="ensaioDados.titulo"></h2>
+  <p class="apoio" data-t="ensaioDados.apoio"></p>
+
+  <div class="campo">
+    <label class="campo__rotulo" for="inNomeCompleto" data-t="ensaioDados.rotuloNome"></label>
+    <input class="campo__entrada" type="text" id="inNomeCompleto" autocomplete="name"
+           autocapitalize="words" maxlength="120">
+  </div>
+  <div class="campo">
+    <label class="campo__rotulo" for="inRG" data-t="ensaioDados.rotuloRG"></label>
+    <input class="campo__entrada" type="text" id="inRG" inputmode="text" maxlength="30">
+  </div>
+  <div class="campo">
+    <label class="campo__rotulo" for="inNascOsesp" data-t="ensaioDados.rotuloNasc"></label>
+    <input class="campo__entrada" type="text" id="inNascOsesp" inputmode="numeric"
+           placeholder="dd/mm/aaaa" maxlength="10">
+  </div>
+
+  <p class="nota" data-t="ensaioDados.lgpd"></p>
+  <span class="erro" id="erEnsaioDados"></span>
+  <div class="acoes">
+    <button type="button" class="btn btn--primario" id="btnEnsaioDados" data-t-texto="ensaioDados.botao"></button>
+  </div>
+</section>
+
 <!-- Selo final -->
 <section class="tela" data-tela="selo">
   <div style="padding-top:26px;">

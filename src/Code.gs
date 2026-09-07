@@ -10,7 +10,7 @@
  * Padrões: PADROES_OPUS_AI.md (rev. 27/08/2026)
  */
   
-var VERSAO = 'MRO-4.2.0 · 07/09/2026';
+var VERSAO = 'MRO-4.3.0 · 07/09/2026';
 var TZ = 'America/Sao_Paulo';
   
 var PROP = {
@@ -35,6 +35,7 @@ var ABAS = {
   FASE2: 'Fase2',
   FASE3: 'Fase3',
   ACESSO: 'Acesso',
+  FASE4: 'Fase4',
   LEMBRETES: 'Lembretes',
   LOG: 'Log'
 };
@@ -151,6 +152,7 @@ function garantirAbasBase() {
   semearRepertorio(ss);
   semearConfig(ss);
   garantirAbaLembretes();
+  garantirAbaFase4();
   
   return 'Abas garantidas em: ' + ss.getName();
 }
@@ -681,6 +683,7 @@ function getDadosIniciais() {
     config: cfg,
     eventos: getEventos(),
     repertorio: getRepertorio(),
+    ensaio: getEnsaioAberto(),
     inscricoesAbertas: (cfg.inscricoesAbertas || 'SIM').toUpperCase() === 'SIM'
   };
 }
@@ -1799,6 +1802,15 @@ function diagnostico() {
     out.push('     o gatilho de tempo se cria à mão, no painel de acionadores, ' +
       'apontando para enviarLembretes');
   } catch (e) { out.push('FALHA · Lembretes: ' + e.message); }
+
+  try {
+    garantirAbaFase4();
+    var ens = getEnsaioAberto();
+    out.push((ens.aberto ? 'OK  ' : 'FECHADO') + ' · Ensaio da Osesp: inscrição ' +
+      (ens.aberto ? 'aberta até ' + ens.prazoTexto : 'encerrada') +
+      ' · programa com ' + ens.programa.length + ' obras');
+    out.push('     listaOsesp() devolve a lista pronta · enviarConviteOsesp() convida quem falta');
+  } catch (e) { out.push('FALHA · Fase 4: ' + e.message); }
 
   var url = getAppUrl();
   out.push(url ? ('OK · URL: ' + url) : 'AVISO · publique antes para obter a URL');
