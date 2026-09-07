@@ -40,21 +40,29 @@ jobs:
       - name: Instalar o clasp
         run: npm install -g @google/clasp@2.4.2
 
+      # Sem o segredo, a publicação automática apenas não acontece. Falhar
+      # aqui encheria a caixa de entrada de e-mail de erro a cada push, por
+      # causa de uma configuração opcional — ruído que ninguém lê.
       - name: Autenticar
+        id: auth
         env:
           CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
         run: |
           if [ -z "$CLASPRC_JSON" ]; then
-            echo "::error::Falta o segredo CLASPRC_JSON. Veja docs/PUBLICAR.md."
-            exit 1
+            echo "configurado=nao" >> "$GITHUB_OUTPUT"
+            echo "::notice::Sem o segredo CLASPRC_JSON — nada foi publicado. \
+            Para ligar a publicação automática, veja docs/PUBLICAR.md."
+            exit 0
           fi
           printf '%s' "$CLASPRC_JSON" > "$HOME/.clasprc.json"
+          echo "configurado=sim" >> "$GITHUB_OUTPUT"
 
       - name: Enviar o código
+        if: steps.auth.outputs.configurado == 'sim'
         run: clasp push --force
 
       - name: Nova implantação
-        if: ${{ inputs.implantar }}
+        if: steps.auth.outputs.configurado == 'sim' && inputs.implantar
         run: clasp deploy --description "GitHub Actions · ${{ github.sha }}"
 
       - name: Apagar a credencial do runner
