@@ -27,28 +27,94 @@
 window.tato = (function () {
   'use strict';
 
-  var mudo = false;
+  // Duas máquinas diferentes, e nenhuma delas está em toda parte.
+  //
+  //   1. navigator.vibrate — Android (Chrome, Firefox, Samsung Internet).
+  //   2. o interruptor do iOS — o Safari nunca implementou a Vibration API,
+  //      e não há previsão de implementar. O que existe é um efeito colateral:
+  //      desde o iOS 17.4, alternar um <input type="checkbox" switch> dispara
+  //      o háptico do sistema. Um interruptor invisível, alternado por código,
+  //      é a única vibração que um iPhone dá a uma página web.
+  //
+  // O interruptor precisa estar renderizado: display:none o cala. Fica fora
+  // da tela, sem ocupar espaço e sem aparecer para leitor de tela.
+
+  var reduzido = false;
   try {
-    mudo = !navigator.vibrate ||
-      (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
-  } catch (e) { mudo = true; }
+    reduzido = !!(window.matchMedia &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  } catch (e) { reduzido = false; }
+
+  var temVibrate = false;
+  try { temVibrate = typeof navigator.vibrate === 'function'; } catch (e) {}
+
+  var chave = null;
+  function interruptor() {
+    if (chave !== null) return chave;
+    chave = false;
+    try {
+      var i = document.createElement('input');
+      i.type = 'checkbox';
+      // Se o navegador não conhece o atributo, não há háptico a tirar dele.
+      if (!('switch' in i)) return chave;
+      i.setAttribute('switch', '');
+      i.setAttribute('aria-hidden', 'true');
+      i.tabIndex = -1;
+      i.style.cssText = 'position:fixed;left:-9999px;top:0;width:1px;height:1px;' +
+        'opacity:0;pointer-events:none;';
+      document.body.appendChild(i);
+      chave = i;
+    } catch (e) { chave = false; }
+    return chave;
+  }
+
+  // O interruptor do iOS não tem duração nem padrão: é um toque só. Um padrão
+  // de três tempos vira três toques espaçados — o mais perto que dá de chegar.
+  function baterChave(padrao) {
+    var i = interruptor();
+    if (!i) return;
+    var tempos = [0];
+    if (padrao instanceof Array) {
+      var t = 0;
+      tempos = [];
+      for (var k = 0; k < padrao.length; k += 2) {
+        tempos.push(t);
+        t += (padrao[k] || 0) + (padrao[k + 1] || 0);
+      }
+    }
+    tempos.forEach(function (ms) {
+      setTimeout(function () { try { i.click(); } catch (e) {} }, ms);
+    });
+  }
+
+  var mudo = reduzido || (!temVibrate && !interruptorPossivel());
+
+  function interruptorPossivel() {
+    try { return 'switch' in document.createElement('input'); } catch (e) { return false; }
+  }
 
   function tocar(padrao) {
     if (mudo) return;
-    try { navigator.vibrate(padrao); } catch (e) { mudo = true; }
+    if (temVibrate) {
+      try { navigator.vibrate(padrao); return; } catch (e) { temVibrate = false; }
+    }
+    baterChave(padrao);
   }
 
+  // Abaixo de uns 15ms boa parte dos motores de vibração nem chega a girar:
+  // o pulso existe no log e não existe no dedo.
   var PADRAO = {
-    escolha:  8,              // marcou uma opção
-    avanca:   14,             // seguiu para a próxima tela
-    sucesso:  [12, 45, 22],   // gravou, terminou
-    erro:     [28, 45, 28]    // faltou alguma coisa
+    escolha:  18,             // marcou uma opção
+    avanca:   30,             // seguiu para a próxima tela
+    sucesso:  [20, 60, 35],   // gravou, terminou
+    erro:     [40, 60, 40]    // faltou alguma coisa
   };
 
   document.addEventListener('click', function (ev) {
     var alvo = ev.target && ev.target.closest &&
       ev.target.closest('button, .cartao, .chip, .opcao, .ciencia, ' +
-        '.ordenar__item, .ligar__peca, .barra__passo, .codigo__casa');
+        '.ordenar__item, .ligar__peca, .barra__passo, .codigo__casa, ' +
+        'label.opcao, .trecho, .cartao__toque');
     if (!alvo || alvo.disabled) return;
 
     if (alvo.classList.contains('btn--primario')) tocar(PADRAO.avanca);
@@ -60,7 +126,13 @@ window.tato = (function () {
     avanca:  function () { tocar(PADRAO.avanca); },
     sucesso: function () { tocar(PADRAO.sucesso); },
     erro:    function () { tocar(PADRAO.erro); },
-    disponivel: function () { return !mudo; }
+    disponivel: function () { return !mudo; },
+    // Para descobrir, do celular de quem reclamou, qual das duas máquinas
+    // existe ali. Some do caminho de quem não for procurar.
+    diagnostico: function () {
+      return { vibrate: temVibrate, interruptor: interruptorPossivel(),
+               movimentoReduzido: reduzido, mudo: mudo };
+    }
   };
 })();
 
