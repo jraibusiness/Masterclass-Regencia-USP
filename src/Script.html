@@ -1335,10 +1335,10 @@
         '</div></div>';
     }).join('');
   
-    var portaFase3 = $('fimPreparo');
+    var portaFase3 = $('fimProximo');
     if (portaFase3) {
       portaFase3.hidden = false;
-      portaFase3.textContent = T.metodo.botaoAbrir || 'Continuar para o preparo da obra';
+      $('fimPreparo').textContent = T.metodo.botaoAbrir || 'Continuar para o preparo da obra';
     }
   
     $('fimRedes').innerHTML = [

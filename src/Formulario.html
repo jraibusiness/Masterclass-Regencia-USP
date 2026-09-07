@@ -399,13 +399,22 @@
       <div class="protocolo" id="fimProtocolo"></div>
       <p class="erro" id="fimAviso" hidden style="text-align:left;"></p>
     </div>
+
+    <!-- O passo seguinte vem antes da agenda e das redes: quem acabou de
+         terminar o cadastro sente que acabou, e não rola mais a tela. -->
+    <div id="fimProximo" hidden style="margin:4px 0 30px;">
+      <div style="border-left:3px solid var(--ouro);padding:14px 0 14px 16px;
+                  background:var(--onyx-2);margin:0 0 14px;">
+        <p class="apoio" style="margin:0;color:var(--prata);" data-t="fim.proximo"></p>
+      </div>
+      <div class="acoes" style="margin:0;">
+        <button type="button" class="btn btn--primario" id="fimPreparo"></button>
+      </div>
+    </div>
     <p class="campo__rotulo" data-t="fim.agenda"></p>
     <div class="agenda" id="fimAgenda"></div>
     <p class="campo__rotulo" data-t="fim.redes"></p>
     <div class="social" id="fimRedes"></div>
-    <div class="acoes" style="margin-top:26px;">
-      <button type="button" class="btn btn--primario" id="fimPreparo" hidden></button>
-    </div>
   </section>
   
   <?!= include('Fase3Formulario') ?>
