@@ -59,8 +59,20 @@ function doGet(e) {
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
   
+/**
+ * Inclui um arquivo, avaliando os scriptlets que houver dentro dele.
+ *
+ * createHtmlOutputFromFile devolve o conteúdo CRU. Com ele, um
+ * <?!= include('X') ?> dentro de um arquivo já incluído não roda: chega ao
+ * navegador como texto literal, e a tela que ele traria simplesmente não
+ * existe. Foi o que aconteceu com o Fase3Formulario, incluído de dentro do
+ * Formulario — a Fase 3 subiu sem nenhuma das telas dela.
+ *
+ * createTemplateFromFile().evaluate() avalia, e o include passa a funcionar
+ * em qualquer profundidade. Para arquivo sem scriptlet o efeito é nenhum.
+ */
 function include(nome) {
-  return HtmlService.createHtmlOutputFromFile(nome).getContent();
+  return HtmlService.createTemplateFromFile(nome).evaluate().getContent();
 }
   
 function getAppUrl() {

@@ -64,13 +64,30 @@ for (const f of arquivosHtml) {
   checarSintaxe(f, blocos.join('\n'));
 }
 
-// Scriptlets do HtmlService só fazem sentido nos dois arquivos que
-// hospedam includes. Em qualquer outro, indicam include mal fechado.
-const HOSPEDAM_INCLUDE = ['index.html', 'Formulario.html'];
+// Todo include tem de apontar para um arquivo existente.
+const arquivoDe = new Map(arquivosHtml.map(f => [f.replace(/\.html$/, ''), f]));
+const comScriptlet = [];
 for (const f of arquivosHtml) {
-  if (HOSPEDAM_INCLUDE.includes(f)) continue;
   const bruto = fs.readFileSync(path.join(SRC, f), 'utf8');
-  if (/<\?[!=]?/.test(bruto)) falha(f + ' — scriptlet <? ?> fora do index');
+  const alvos = [...bruto.matchAll(/<\?!=\s*include\('([A-Za-z0-9_]+)'\)\s*\?>/g)].map(m => m[1]);
+  for (const alvo of alvos) {
+    conferir(arquivoDe.has(alvo), f + ' inclui ' + alvo +
+      (arquivoDe.has(alvo) ? '' : ' — arquivo inexistente'));
+  }
+  if (/<\?/.test(bruto) && f !== 'index.html') comScriptlet.push(f);
+}
+
+// A armadilha que derrubou a v4.0.0: createHtmlOutputFromFile devolve o
+// conteúdo cru, então um include dentro de um arquivo já incluído vira
+// texto literal e a tela some. Só evaluate() avalia em profundidade.
+const codeGs = fs.readFileSync(path.join(SRC, 'Code.gs'), 'utf8');
+const incluiAvaliando = /function include\([^)]*\)\s*{[^}]*createTemplateFromFile[^}]*evaluate/.test(codeGs);
+if (comScriptlet.length) {
+  conferir(incluiAvaliando,
+    'include() avalia templates — exigido por ' + comScriptlet.join(', ') +
+    (incluiAvaliando ? '' : ', que têm scriptlet e não seriam avaliados'));
+} else {
+  ok('nenhum scriptlet fora do index');
 }
 
 /* ============================================================
