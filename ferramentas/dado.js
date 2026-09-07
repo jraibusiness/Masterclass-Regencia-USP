@@ -82,6 +82,14 @@ if (CASO === 'novo') {
     encontros:[], fase2Concluida:false, escolhas:[], obrasQuiz:[], quizzesFeitos:[],
     ciencias:{ partituras:false, sonataTheory:false }, ensaio:null };
 }
+/* ?caso=feito → já fez tudo: é o caso que exercita a trava de duplicidade. */
+if (CASO === 'feito') {
+  FIXTURES.verificarCodigo = Object.assign({}, FIXTURES.verificarCodigo, {
+    quizzesFeitos:[{ obraId:'O2', obra:'Sinfonia nº 7, op. 92', pontos:78, maximo:100,
+      acertos:'7/10', quando:'05/09/2026', partituras:true }],
+    ciencias:{ partituras:true, sonataTheory:true },
+    ensaio:{ interesse:true, nomeCompleto:'Meena Campelo', quando:'07/09/2026' } });
+}
 if (CASO === 'semfase2') {
   FIXTURES.verificarCodigo = Object.assign({}, FIXTURES.verificarCodigo, {
     fase2Concluida:false, escolhas:[], obrasQuiz:[], quizzesFeitos:[],
