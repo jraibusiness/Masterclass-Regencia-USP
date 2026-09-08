@@ -417,3 +417,189 @@ function enviarEmailOsesp(email, nome, cfg) {
     texto.join('\n'),
     { htmlBody: html, name: cfg.assinaturaEmail || 'Equipe Academia Kephra', replyTo: contato });
 }
+
+
+/* ============================================================
+   AVISO DE QUE O PEDIDO FOI ENVIADO À OSESP
+
+   Escreve só a quem disse SIM. Não promete lugar: os ingressos
+   deste ensaio estão esgotados, e a Osesp só reconfirma as
+   reservas devolvidas no início da semana. Um e-mail que
+   prometesse entrada e depois não a entregasse valeria menos
+   que nenhum e-mail.
+   ============================================================ */
+
+/**
+ * Avisa os confirmados de que a lista foi enviada e a resposta é aguardada.
+ * Rode à mão, uma vez, depois de mandar a lista à produção da Osesp.
+ */
+function avisarPedidoEnviadoOsesp() {
+  garantirAbaFase4();
+  var cfg = getConfig();
+  var aba = getAba(ABAS.FASE4);
+  if (aba.getLastRow() < 2) return 'Ninguém respondeu à Fase 4. Nada enviado.';
+
+  var col = mapaColunas(aba, CABECALHO_FASE4);
+  var v = aba.getRange(2, 1, aba.getLastRow() - 1, aba.getLastColumn()).getValues();
+
+  var vistos = {}, enviados = 0, erros = 0, quem = [];
+  for (var i = v.length - 1; i >= 0; i--) {         // a última resposta manda
+    var email = normalizarEmail(v[i][col.Email]);
+    if (!email || vistos[email]) continue;
+    vistos[email] = true;
+    if (String(v[i][col.Interesse]).toUpperCase().indexOf('SIM') !== 0) continue;
+
+    var nome = String(v[i][col.NomeCompleto] || '').split(' ')[0];
+    try {
+      enviarAvisoPedidoOsesp(email, nome, cfg);
+      enviados++;
+      quem.push(nome + ' <' + email + '>');
+    } catch (e) {
+      erros++;
+      registrar('ERRO', 'OSESP_AVISO', email + ' · ' + e.message);
+    }
+  }
+
+  registrar('INFO', 'OSESP_AVISO', 'Enviados: ' + enviados + ' · erros: ' + erros);
+  return 'Avisados: ' + enviados + (erros ? ' · erros: ' + erros : '') +
+    '\n' + quem.join('\n');
+}
+
+function enviarAvisoPedidoOsesp(email, primeiroNome, cfg) {
+  var contato = cfg.emailContato || PADRAO.CONTATO;
+  var assinatura = cfg.assinaturaEmail || 'Equipe Academia Kephra';
+  var F = FONTE;
+
+  function p(t, mt) {
+    return '<div style="font:400 15px/1.72 ' + F + ';color:#2A2A2A;margin-top:' +
+      (mt || '0') + ';">' + t + '</div>';
+  }
+
+  var programa = PROGRAMA_OSESP.map(function (o) {
+    return '<tr><td style="padding:9px 0;border-bottom:1px solid #E8E8E8;' +
+      'font:400 14px/1.6 ' + F + ';color:#2A2A2A;">' +
+      '<span style="color:#8A8A8A;">' + escapeHtml(o.compositor) + '</span><br>' +
+      '<i>' + escapeHtml(o.obra) + '</i>' +
+      (o.nota ? ' — ' + escapeHtml(o.nota) : '') + '</td></tr>';
+  }).join('');
+
+  var html = '' +
+    '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">' +
+    '<meta name="viewport" content="width=device-width,initial-scale=1">' +
+    '<meta name="color-scheme" content="light only"></head>' +
+    '<body style="margin:0;padding:0;background:#0A0A0A;">' +
+    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" ' +
+    'style="border-collapse:collapse;background:#0A0A0A;">' +
+    '<tr><td align="center" style="padding:22px 10px 30px;">' +
+    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" ' +
+    'style="border-collapse:collapse;max-width:560px;background:#FFFFFF;">' +
+
+    '<tr><td style="background:#0A0A0A;padding:36px 26px 34px;text-align:center;">' +
+    '<div style="font:400 10px/1.8 ' + F + ';letter-spacing:.2em;text-transform:uppercase;' +
+    'color:#E0C56E;max-width:330px;margin:0 auto;">ECA/USP e Academia Kephra oferecem</div>' +
+    '<div style="font:300 24px/1.35 ' + F + ';color:#EAEAEA;margin-top:16px;max-width:330px;' +
+    'margin-left:auto;margin-right:auto;">Masterclasses de<br>Regência Orquestral</div>' +
+    '<div style="font:400 10.5px/1.6 ' + F + ';letter-spacing:.22em;text-transform:uppercase;' +
+    'color:#9A9A9A;margin-top:18px;">Maestro João Rocha</div></td></tr>' +
+
+    '<tr><td style="padding:34px 26px 0;">' +
+    '<div style="font:400 19px/1.5 ' + F + ';color:#0A0A0A;max-width:30ch;">' +
+    (primeiroNome ? escapeHtml(primeiroNome) + ', o' : 'O') +
+    ' pedido está com a Osesp. Agora é aguardar.</div>' +
+    '<div style="font:400 15px/1.7 ' + F + ';color:#5A5A5A;margin-top:12px;max-width:44ch;">' +
+    'Você marcou na plataforma que gostaria de ir ao ensaio aberto de quinta-feira. ' +
+    'Aqui está exatamente em que pé estamos — sem promessa e sem suspense.</div></td></tr>' +
+
+    '<tr><td style="padding:22px 26px 0;">' +
+    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" ' +
+    'style="border-collapse:collapse;background:#0A0A0A;"><tr>' +
+    '<td align="center" style="padding:16px 18px;font:400 11px/1.8 ' + F + ';' +
+    'letter-spacing:.14em;text-transform:uppercase;color:#FFFFFF;">' +
+    'Seu nome já está na lista<br>enviada à Osesp</td></tr></table></td></tr>' +
+
+    '<tr><td style="padding:34px 26px 0;">' + rubrica('O que já foi feito') +
+    p('O pedido foi enviado à Osesp, com o seu nome completo, RG e data de nascimento, ' +
+      'junto com o dos demais colegas e o do maestro. Foi para a gerência de experiência ' +
+      'do cliente, que é quem decide.') + '</td></tr>' +
+
+    '<tr><td style="padding:24px 26px 0;">' +
+    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" ' +
+    'style="border-collapse:collapse;background:#F4F1EA;border-left:3px solid #B08542;"><tr>' +
+    '<td style="padding:16px 18px;font:400 14px/1.72 ' + F + ';color:#2A2A2A;">' +
+    '<b style="font-weight:700;">Os ingressos deste ensaio estão esgotados.</b> ' +
+    'A Osesp respondeu que reconfirma no início da semana quais reservas já feitas ' +
+    'serão de fato usadas — e é dessas devoluções que dependeria a nossa entrada. ' +
+    'Pedido feito, resposta pendente: uma chance real, que não é uma certeza.' +
+    '</td></tr></table></td></tr>' +
+
+    '<tr><td style="padding:24px 26px 0;">' +
+    p('Assim que houver resposta, você é avisado no mesmo dia. Não precisa fazer nada ' +
+      'até lá — e, por favor, <b style="font-weight:700;">não compre ingresso por conta ' +
+      'própria</b> antes do nosso retorno.') + '</td></tr>' +
+
+    '<tr><td style="padding:34px 26px 0;">' + rubrica('O ensaio') +
+    '<div style="font:400 14px/1.6 ' + F + ';color:#2A2A2A;"><span style="color:#8A8A8A;">' +
+    escapeHtml(cfg.osespData + ' · ' + cfg.osespHora + ' · ' + cfg.osespDuracao) +
+    '</span><br>' + escapeHtml(cfg.osespLocal + ' — ' + cfg.osespEndereco) +
+    '<br><span style="color:#8A8A8A;">Regência de ' + escapeHtml(cfg.osespRegente) +
+    '</span></div></td></tr>' +
+
+    '<tr><td style="padding:26px 26px 0;">' + rubrica('Programa') +
+    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" ' +
+    'style="border-collapse:collapse;table-layout:fixed;">' + programa + '</table></td></tr>' +
+
+    '<tr><td style="padding:24px 26px 0;">' +
+    p('Nos vemos na masterclass de qualquer modo — e essa parte não depende de lista ' +
+      'de espera nenhuma.') + '</td></tr>' +
+
+    '<tr><td style="padding:34px 26px 0;text-align:center;">' +
+    '<div style="font:400 15px/1.8 ' + F + ';color:#3A3A3A;max-width:340px;margin:0 auto;">' +
+    'Até lá,<br>' + escapeHtml(assinatura) + '</div>' +
+    '<div style="font:400 13px/1.8 ' + F + ';color:#8A8A8A;margin-top:14px;max-width:330px;' +
+    'margin-left:auto;margin-right:auto;">Qualquer dúvida, escreva para<br>' +
+    '<a href="mailto:' + escapeHtml(contato) + '" style="color:#8A7940;text-decoration:none;' +
+    'border-bottom:1px solid #DCDCDC;">' + escapeHtml(contato) + '</a></div></td></tr>' +
+
+    '<tr><td style="padding:30px 26px 0;">' +
+    '<div style="border-top:1px solid #E8E8E8;padding-top:20px;font:400 11px/1.9 ' + F + ';' +
+    'color:#9A9A9A;text-align:center;max-width:320px;margin:0 auto;">' +
+    'Tratamos seus dados conforme a LGPD<br>(Lei nº 13.709/2018). Seu nome completo, RG e<br>' +
+    'data de nascimento foram enviados à Osesp<br>apenas para o credenciamento deste ensaio,<br>' +
+    'conforme você autorizou na plataforma.<br>Para acessar, corrigir ou excluir seus dados,<br>' +
+    'escreva para ' + escapeHtml(contato) + '</div></td></tr>' +
+
+    '<tr><td style="padding:24px 26px 30px;text-align:center;">' +
+    '<div style="font:400 10px/1.8 ' + F + ';letter-spacing:.16em;text-transform:uppercase;' +
+    'color:#B4B4B4;">Plataforma desenvolvida por <a href="' +
+    escapeHtml(cfg.creditoUrl || 'https://opusaitech.com/') + '" style="color:#8A8A8A;' +
+    'text-decoration:none;border-bottom:1px solid #DCDCDC;">' +
+    escapeHtml(cfg.creditoNome || 'Opus AI') + '</a></div></td></tr>' +
+
+    '</table></td></tr></table></body></html>';
+
+  var texto = [
+    'O pedido está com a Osesp. Agora é aguardar.',
+    '',
+    'O pedido foi enviado à Osesp, com o seu nome completo, RG e data de',
+    'nascimento, junto com o dos demais colegas e o do maestro.',
+    '',
+    'Os ingressos deste ensaio estão ESGOTADOS. A Osesp reconfirma no início',
+    'da semana quais reservas já feitas serão de fato usadas — e é dessas',
+    'devoluções que dependeria a nossa entrada. Uma chance real, que não é',
+    'uma certeza.',
+    '',
+    'Assim que houver resposta, você é avisado no mesmo dia. Não compre',
+    'ingresso por conta própria antes do nosso retorno.',
+    '',
+    cfg.osespData + ' · ' + cfg.osespHora + ' · ' + cfg.osespLocal,
+    'Regência de ' + cfg.osespRegente,
+    '',
+    'Até lá,',
+    assinatura
+  ];
+
+  MailApp.sendEmail(email,
+    'Ensaio aberto da Osesp: o pedido foi feito — agora é aguardar',
+    texto.join('\n'),
+    { htmlBody: html, name: assinatura, replyTo: contato });
+}
